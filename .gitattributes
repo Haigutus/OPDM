@@ -1,0 +1,3 @@
+ecp-api/_version.py export-subst
+ECP/_version.py export-subst
+OPDM/_version.py export-subst
