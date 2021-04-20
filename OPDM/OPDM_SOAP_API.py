@@ -29,7 +29,6 @@ import aniso8601
 import urllib3
 
 
-
 def get_element(element_path, xmltree):
     element = xmltree.find(element_path, namespaces = xmltree.nsmap)
     return element
@@ -51,12 +50,6 @@ def add_xml_elements(xml_string, parent_element_url, metadata_dict):
 
 
         return etree.tostring(xmltree, pretty_print=True)
-
-
-def xml_to_dict(xml_tree, xml_atrribs = False):
-
-    xml_string = etree.tostring(xml_tree)
-    xml_dict = xmltodict.parse(xml_string, xml_attribs = xml_atrribs)
 
 
 class create_client():

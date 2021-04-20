@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name='opdm',
+    name='opdm-api',
     version=versioneer.get_version().split("+")[0],
     cmdclass=versioneer.get_cmdclass(),
     packages=['OPDM'],
@@ -17,7 +17,7 @@ setup(
     author_email='kristjan.vilgo@gmail.com',
     description='ENTSO-E OPDM client SOAP API implementation in python',
     install_requires=[
-        "requests", "zeep", 'urllib3', 'lxml'
+        "requests", "zeep", 'urllib3', 'lxml', 'aniso8601',
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
