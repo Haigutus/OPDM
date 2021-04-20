@@ -17,6 +17,7 @@ from zeep.plugins import HistoryPlugin
 from lxml import etree
 from lxml.builder import ElementMaker
 
+import random
 import os
 import uuid
 
@@ -27,6 +28,7 @@ from datetime import datetime, timezone
 import aniso8601
 
 import urllib3
+
 
 
 def get_element(element_path, xmltree):
@@ -40,14 +42,20 @@ def add_xml_elements(xml_string, parent_element_url, metadata_dict):
         metadata_element = get_element(parent_element_url, xmltree = xmltree)
 
 
-        for key in metadata_dict:
+        for key, value in metadata_dict.items():
 
             namespace, element_name = key.split(":")
 
             element_full_name = "{{{}}}{}".format(xmltree.nsmap[namespace], element_name)
 
-            etree.SubElement(metadata_element, element_full_name, nsmap = xmltree.nsmap).text = metadata_dict[key]
+            element = etree.SubElement(metadata_element, element_full_name, nsmap = xmltree.nsmap)
 
+            if type(value) == str:
+                element.text = value
+
+            if type(value) == dict:
+                element.text = value["value"]
+                element.attrib["operator"] = value["operator"]
 
         return etree.tostring(xmltree, pretty_print=True)
 
@@ -152,8 +160,9 @@ class create_client():
                                                    xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
                                                    xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
                                         <sm:part name="identifier" type="opde:ShortMetaData">
+                                        <sm:part name="content-return-mode">{return_mode}</sm:part><!-- PAYLOAD or FILE -->
                                             <opdm:Profile>
-                                                <opde:Id>{}</opde:Id>
+                                                <opde:Id>{mRID}</opde:Id>
                                             </opdm:Profile>
                                             </sm:part>
                                     </sm:GetContent>"""
@@ -275,36 +284,72 @@ class create_client():
 
         return query_id, result
 
-    def get_content(self, content_id):
+    def get_content(self, content_id, return_payload=False):
+        """Downloads single file from OPDM Service Provider to OPDM Client local storage,
+        to get the file binary as a response of set return_payload to True
 
-        new_GetContentResult = self.operations.GetContentResult.format(content_id)
-        #result = execute_operation(new_GetContentResult.encode())
+        Returns a dictionary with metada and filename or conent, to get the filename or content use:
+        result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content']
+        """
+
+        return_mode = "FILE"
+        if return_payload:
+            return_mode = "PAYLOAD"
+
+        new_GetContentResult = self.operations.GetContentResult.format(mRID=content_id, return_mode=return_mode)
 
         result = xmltodict.parse(etree.tostring(self.execute_operation(new_GetContentResult.encode())), xml_attribs=False)
 
-        try:
-            print("File downloded")
-            print(result['sm:GetContentResult']['sm:part']['opdm:Profile']['opde:Content']) # Print url of the
+        if self.debug:
+            try:
+                print("File downloaded")
+                print(result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content']) # Print url of the
 
-        except:
-            print("Error oqqoured")
+            except:
+                print("Error occurred")
 
         return result
 
     def publication_list(self):
 
         result = self.execute_operation(self.operations.PublicationsList.encode())
-        return result
+        return xmltodict.parse(etree.tostring(result), xml_attribs=True)
 
-    def publication_subscribe(self, subscription_id=str(uuid.uuid4()), publication_id="ENTSOE-OPDM-Publish-CGM", mode="DIRECT_CONTENT", object_type="CGM", metadata_dict={}):
+    def publication_subscribe(self, object_type="BDS", subscription_id="", publication_id="", mode="DIRECT_CONTENT", metadata_dict={}):
         """
-        Set up subscription for data models. By default sets up subscription for CGM
+        Set up subscription for data models. By default sets up subscription for BDS
 
-        publication_id -> request for available with publication_list()
-        mode -> META?, DIRECT_CONTENT, FULL? # TODO check the ? options
         objec_type -> IGM, CGM, BDS
-        metadata_dict_example = {'pmd:cgmesProfile': 'SV', 'pmd:scenarioDate': '2018-12-07T00:30:00+01:00', 'pmd:timeHorizon': '1D'}
+        subscription_id -> if empty string, uuid4 is assigned as id
+        publication_id -> if empty string, at random suitable publication is selected
+        mode -> META, DIRECT_CONTENT, FULL
+        metadata_dict_example = {'pmd:TSO': 'ELERING', 'pmd:timeHorizon': '1D'}
         """
+        object_types = ["IGM", "CGM", "BDS"]
+        if object_type not in object_types:
+            print(f"ObjectType '{object_type}' not supported, supported types are: {object_types}")
+            return None
+
+        modes = ["META", "DIRECT_CONTENT", "FULL"]
+        if mode not in modes:
+            print(f"Mode '{mode}' not supported, supported modes are: {modes}")
+            return None
+
+        if subscription_id == "":
+            subscription_id = str(uuid.uuid4())
+
+
+        # Get available publications
+        available_publications = service.publication_list()
+        publications_ids = [item['opde:publicationID']["@v"] for item in available_publications['sm:PublicationsSubscriptionListResult']['sm:part']['opdm:PublicationsList']['opdm:Publication']]
+
+        if publication_id == "":
+            publication_id = random.choice([id for id in publications_ids if f"-{object_type}" in id])
+
+        if publication_id not in publications_ids:
+            print(f"Publication '{publication_id}' not supported, supported modes are: {publications_ids}")
+            return None
+
 
         PublicationSubscribe = f"""<sm:PublicationSubscribe xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
                                     xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
@@ -358,14 +403,14 @@ class create_client():
 
             return xmltodict.parse(etree.tostring(self.execute_operation(GetProfilePublicationReport)), xml_attribs=True)
 
-
     def publication_cancel_subscription(self, subscription_id):
         """Cancel subscription by subscription ID"""
 
-        new_PublicationSubscriptionCancel = self.operations.PublicationSubscriptionCancel.format(subscription_id)
-        result = self.execute_operation(new_PublicationSubscriptionCancel)
+        new_PublicationSubscriptionCancel = self.operations.PublicationSubscriptionCancel.format(subscription_id).encode()
 
-        return result
+        return xmltodict.parse(etree.tostring(self.execute_operation(new_PublicationSubscriptionCancel)), xml_attribs=False)
+
+
 
 
 
@@ -377,6 +422,16 @@ if __name__ == '__main__':
     server = 'https://test-ba-opde.elering.sise:8443'
 
     service = create_client(server, username="user", password="pass", debug=True)
+
+    ## Subscription example BDS
+    #response = service.publication_subscribe("BDS")
+
+    ## Subscription example IGM-s wo RT
+    # time_horizons = [f"{item:02d}" for item in list(range(1,32))] + ["ID", "1D", "2D", "YR"]
+    # for time_horizon in time_horizons:
+    #     print(f"Adding subscription for {time_horizon}")
+    #     response = service.publication_subscribe("IGM", subscription_id=f"IGM-{time_horizon}", metadata_dict={'pmd:timeHorizon': time_horizon})
+    #     print(response)
 
 
     # Query model part example
