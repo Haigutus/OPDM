@@ -30,9 +30,8 @@ import aniso8601
 import urllib3
 
 
-
 def get_element(element_path, xmltree):
-    element = xmltree.find(element_path, namespaces = xmltree.nsmap)
+    element = xmltree.find(element_path, namespaces=xmltree.nsmap)
     return element
 
 
@@ -221,7 +220,7 @@ class create_client():
         response = self.client.service.ExecuteOperation(operation_xml, _soapheaders=self.create_saml_header())
         return response
 
-    def publication_request(self, content_type, file_path_or_file_object):
+    def publication_request(self, file_path_or_file_object, content_type="CGMES"):
         """PublicationRequest(dataset: ns0:opdeFileDto) -> return: ns0:resultDto,
         ns0:opdeFileDto(id: xsd:string, type: xsd:string, content: xsd:base64Binary)"""
 
@@ -242,7 +241,7 @@ class create_client():
 
         return response
 
-    def query_object(self, object_type="IGM", metadata_dict = "", components = [], dependencies = []):
+    def query_object(self, object_type="IGM", metadata_dict="", components=[], dependencies=[]):
         """
         objec_type ->IGM, CGM, BDS
         metadata_dict_example = {'pmd:cgmesProfile': 'SV', 'pmd:scenarioDate': '2018-12-07T00:30:00+01:00', 'pmd:timeHorizon': '1D'}
@@ -480,7 +479,7 @@ if __name__ == '__main__':
     # Model submission example
 
 file_path = r"\\elering.sise\teenused\NMM\data\ACG\Generated Cases Archive\20190713T1530Z__ELERING_EQ_001.zip"
-response = service.publication_request("CGMES", file_path)
+response = service.publication_request(file_path)
 print(etree.tostring(response, pretty_print=True).decode())
 
 
