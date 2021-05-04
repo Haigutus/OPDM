@@ -17,9 +17,9 @@ or
 # Usage
 
 ## Initialise
-    import opdm-api
+    import OPDM
 
-    service = opdm-api.create_client("https://opdm.elering.sise:8443", username="user", password="pass")
+    service = OPDM.create_client("https://opdm.elering.sise:8443", username="user", password="pass")
 
 ## Upload File
 ### Upload a file
@@ -79,6 +79,28 @@ or
     pandas.set_option('display.max_colwidth', -1)
 
     print(pandas.DataFrame(response['sm:QueryResult']['sm:part'][1:]))
+    
+### Query latest boundary
+
+    import pandas
+    
+    # Query data from OPDM
+    _, response = service.query_object("BDS")
+    
+    boundaries = response['sm:QueryResult']['sm:part'][1:]
+
+    # Convert to dataframe for sorting out the latest boundary
+    boundary_data = pandas.DataFrame([x['opdm:OPDMObject'] for x in boundaries])
+
+    # Convert date and version to respective formats
+    boundary_data['date_time'] = pandas.to_datetime(boundary_data['pmd:scenarioDate'])
+    boundary_data['version'] = pandas.to_numeric(boundary_data['pmd:versionNumber'])
+
+    # Sort out official boundary
+    official_boundary_data = boundary_data[boundary_data["opde:Context"] == {'opde:IsOfficial': 'true'}]
+
+    # Get latest boundary meta
+    latest_boundary_meta = boundaries[list(official_boundary_data.sort_values(["date_time", "version"], ascending=False).index)[0]]
 
 ## Download a File
 ### Download to OPDM Client and return local path to the file
