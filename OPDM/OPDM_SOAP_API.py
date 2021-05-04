@@ -478,9 +478,9 @@ if __name__ == '__main__':
 
     # Model submission example
 
-file_path = r"\\elering.sise\teenused\NMM\data\ACG\Generated Cases Archive\20190713T1530Z__ELERING_EQ_001.zip"
-response = service.publication_request(file_path)
-print(etree.tostring(response, pretty_print=True).decode())
+    # file_path = r"\\elering.sise\teenused\NMM\data\ACG\Generated Cases Archive\20190713T1530Z__ELERING_EQ_001.zip"
+    # response = service.publication_request(file_path)
+    # print(etree.tostring(response, pretty_print=True).decode())
 
 
     # Publication list example

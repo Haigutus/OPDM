@@ -29,8 +29,8 @@ or
     import glob
     imort os
     
-    for file_name in glob.glob1(direcotry_path, "*.zip"):
-        service.publication_request(os.path.join(direcotry_path, file_name))
+    for file_name in glob.glob1(directory_path, "*.zip"):
+        service.publication_request(os.path.join(directory_path, file_name))
     
 ## Get File Upload/Publication Report
     publication_report = get_profile_publication_report(model_ID)
