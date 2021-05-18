@@ -1,4 +1,4 @@
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Name:        OPDM_API
 # Purpose:     Expose OPDM functionality in python
 #
@@ -7,7 +7,7 @@
 # Created:     31.07.2018
 # Copyright:   (c) kristjan.vilgo 2018
 # Licence:     MIT
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 from requests import Session
 from zeep import Client
 from zeep.transports import Transport
@@ -29,34 +29,37 @@ import aniso8601
 
 import urllib3
 
+import logging
 
-def get_element(element_path, xmltree):
-    element = xmltree.find(element_path, namespaces=xmltree.nsmap)
+logger = logging.getLogger(__name__)
+
+
+def get_element(element_path, xml_tree):
+    element = xml_tree.find(element_path, namespaces=xml_tree.nsmap)
     return element
 
 
 def add_xml_elements(xml_string, parent_element_url, metadata_dict):
 
-        xmltree = etree.fromstring(xml_string)
-        metadata_element = get_element(parent_element_url, xmltree = xmltree)
+    xml_tree = etree.fromstring(xml_string)
+    metadata_element = get_element(parent_element_url, xml_tree=xml_tree)
 
+    for key, value in metadata_dict.items():
 
-        for key, value in metadata_dict.items():
+        namespace, element_name = key.split(":")
 
-            namespace, element_name = key.split(":")
+        element_full_name = "{{{}}}{}".format(xml_tree.nsmap[namespace], element_name)
 
-            element_full_name = "{{{}}}{}".format(xmltree.nsmap[namespace], element_name)
+        element = etree.SubElement(metadata_element, element_full_name, nsmap=xml_tree.nsmap)
 
-            element = etree.SubElement(metadata_element, element_full_name, nsmap = xmltree.nsmap)
+        if type(value) == str:
+            element.text = value
 
-            if type(value) == str:
-                element.text = value
+        if type(value) == dict:
+            element.text = value["value"]
+            element.attrib["operator"] = value["operator"]
 
-            if type(value) == dict:
-                element.text = value["value"]
-                element.attrib["operator"] = value["operator"]
-
-        return etree.tostring(xmltree, pretty_print=True)
+    return etree.tostring(xml_tree, pretty_print=True)
 
 
 class create_client():
@@ -68,7 +71,7 @@ class create_client():
 
         self.debug = debug
         self.history = HistoryPlugin()
-        self.API_VERSION = "0.3"
+        self.API_VERSION = "0.0.8"  # TODO - Get the version from versioneer
 
         service_wsdl = '{}/cxf/OPDMSoapInterface?wsdl'.format(server)
         auth_wsdl = '{}/cxf/OPDMSoapInterface/SoapAuthentication?wsdl'.format(server)
@@ -83,6 +86,7 @@ class create_client():
         # Set up client
         if debug:
             self.client = Client(service_wsdl, transport=Transport(session=session), plugins=[self.history])
+            logging.basicConfig(format='%(asctime)s | %(name)s | %(levelname)s | %(message)s', level=logging.DEBUG)
         else:
             self.client = Client(service_wsdl, transport=Transport(session=session))
 
@@ -121,10 +125,9 @@ class create_client():
 
         print("-" * 50)
 
+    class Operations:
 
-    class operations:
-
-        QueryObject  = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+        QueryObject = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
                         <sm:Query xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
                                   xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0"
                                   xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
@@ -139,8 +142,6 @@ class create_client():
                         </sm:part>
                         </sm:Query>"""
 
-
-
         QueryProfile = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
                         <sm:Query xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
                                   xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0"
@@ -152,28 +153,23 @@ class create_client():
                         </sm:part>
                     </sm:Query>"""
 
-
         GetContentResult = """<?xml version="1.0" encoding="UTF-8"?>
-                                    <sm:GetContent xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
-                                                   xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
-                                                   xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
-                                                   xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
-                                        <sm:part name="identifier" type="opde:ShortMetaData">
-                                        <sm:part name="content-return-mode">{return_mode}</sm:part><!-- PAYLOAD or FILE -->
-                                            <opdm:Profile>
-                                                <opde:Id>{mRID}</opde:Id>
-                                            </opdm:Profile>
-                                            </sm:part>
-                                    </sm:GetContent>"""
+                                <sm:GetContent xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
+                                               xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
+                                               xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
+                                               xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
+                                    <sm:part name="identifier" type="opde:ShortMetaData">
+                                    <sm:part name="content-return-mode">{return_mode}</sm:part><!-- PAYLOAD or FILE -->
+                                        <opdm:Profile>
+                                            <opde:Id>{mRID}</opde:Id>
+                                        </opdm:Profile>
+                                        </sm:part>
+                                </sm:GetContent>"""
 
-
-        PublicationsList = """<?xml version="1.0" encoding="UTF-8"?>
-                                      <sm:PublicationsSubscriptionList xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0">
-                                            <sm:part name="listType">AVAILABLE_PUBLICATIONS</sm:part>
-                                      </sm:PublicationsSubscriptionList>"""
-
-
-
+        PublicationsSubscriptionList = """<?xml version="1.0" encoding="UTF-8"?>
+                                          <sm:PublicationsSubscriptionList xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0">
+                                                <sm:part name="listType">AVAILABLE_PUBLICATIONS</sm:part>
+                                          </sm:PublicationsSubscriptionList>"""
 
         PublicationSubscriptionCancel = """<sm:PublicationSubscriptionCancel xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
                                                                                 xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
@@ -183,13 +179,43 @@ class create_client():
                                                     <sm:part name="subscriptionID">{}</sm:part>
                                                 </sm:PublicationSubscriptionCancel>"""
 
+        PublicationSubscribe = """<sm:PublicationSubscribe xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
+                                            xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
+                                            xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
+                                            xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0"
+                                            xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
+                                            <sm:part name="subscriptionID">{subscription_id}</sm:part>
+                                            <sm:part name="publicationID">{publication_id}</sm:part>
+                                            <sm:part name="mode">{mode}</sm:part>
+                                            <sm:part name="pattern" type="opde:MetaDataPattern">
+                                                <opdm:OPDMObject>
+                                                    <pmd:Object-Type>{object_type}</pmd:Object-Type>
+                                                </opdm:OPDMObject>
+                                                </sm:part>
+                                            </sm:PublicationSubscribe>"""
+
+        GetProfilePublicationReport = """<sm:GetProfilePublicationReport
+                                                            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                                                            xsi:schemaLocation="http://entsoe.eu/opde/ServiceModel/1/0 ../scheme/opde-service-model.xsd"
+                                                            xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
+                                                            xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
+                                                            xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
+                                                            xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0"
+                                                            xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
+                                                        <sm:part type="opde:MetaDataPattern">
+                                                            <opdm:Profile>
+                                                            </opdm:Profile>
+                                                        </sm:part>
+                                                    </sm:GetProfilePublicationReport>
+                                                    """
+
     def request_security_token(self, pretty_print=False):
         """Return the token as string and it's validity time"""
         token_string = self.auth_client.service.RequestSecurityToken()
         token = etree.fromstring(token_string)
         valid_unitl = aniso8601.parse_datetime(token.find(".//{*}Conditions").attrib['NotOnOrAfter'])
 
-        if pretty_print or self.debug:
+        if pretty_print:
             print(json.dumps(xmltodict.parse(token_string), indent=4))
 
         return token, valid_unitl
@@ -200,11 +226,10 @@ class create_client():
 
         if utc_now > self.auth_valid_until - aniso8601.parse_duration("PT5S"):
             self.token, self.auth_valid_until = self.request_security_token()
-            if self.debug:
-                print("Requesting new Auth Token")
+            logger.debug("Requesting new Auth Token")
 
         elif self.debug:
-            print(f"Auth Token still valid for {self.auth_valid_until - utc_now}")
+            logger.debug(f"Auth Token still valid for {self.auth_valid_until - utc_now}")
 
     def create_saml_header(self):
         """Create SOAP SAML authentication header element for zeep"""
@@ -243,14 +268,14 @@ class create_client():
 
     def query_object(self, object_type="IGM", metadata_dict="", components=[], dependencies=[]):
         """
-        objec_type ->IGM, CGM, BDS
+        object_type ->IGM, CGM, BDS
         metadata_dict_example = {'pmd:cgmesProfile': 'SV', 'pmd:scenarioDate': '2018-12-07T00:30:00+01:00', 'pmd:timeHorizon': '1D'}
         components_example = [{"opde:Component":"45955-94458-854789358-8557895"}, {"opde:Component":"45955-94458-854789358-8557895"}]
         dependencies_example = [{"opde:DependsOn":"45955-94458-854789358-8557895"}, {"opde:Supersedes":"45955-94458-854789358-8557895"}, {"opde:Replaces":"45955-94458-854789358-8557895"}] """
 
         query_id = "pyquery_{api_version}_{uuid}".format(uuid=uuid.uuid4(), api_version=self.API_VERSION)
 
-        _QueryObject = self.operations.QueryObject.format(query_id=query_id, object_type=object_type).encode()
+        _QueryObject = self.Operations.QueryObject.format(query_id=query_id, object_type=object_type).encode()
 
         if metadata_dict != "":
             _QueryObject = add_xml_elements(_QueryObject, ".//opdm:OPDMObject", metadata_dict)
@@ -261,7 +286,7 @@ class create_client():
         for dependency in dependencies:
             _QueryObject = add_xml_elements(_QueryObject, ".//opde:Dependencies", dependency)
 
-        #print(_QueryObject.decode())
+        logger.debug(_QueryObject.decode())
 
         result = xmltodict.parse(etree.tostring(self.execute_operation(_QueryObject)), xml_attribs=False)
 
@@ -271,15 +296,14 @@ class create_client():
 
         """metadata_dict_example = {'pmd:cgmesProfile': 'SV', 'pmd:scenarioDate': '2018-12-07T00:30:00', 'pmd:timeHorizon': '1D'}"""
 
-        query_id = "pyquery_{api_version}_{uuid}".format(uuid = uuid.uuid4(), api_version = self.API_VERSION)
+        query_id = "pyquery_{api_version}_{uuid}".format(uuid=uuid.uuid4(), api_version=self.API_VERSION)
 
-        _QueryProfile = self.operations.QueryProfile.format(query_id = query_id).encode()
+        _QueryProfile = self.Operations.QueryProfile.format(query_id=query_id).encode()
         _QueryProfile = add_xml_elements(_QueryProfile, ".//opdm:Profile", metadata_dict)
 
-        #print(_QueryProfile.decode())
+        logger.debug(_QueryProfile.decode())
 
-        result = xmltodict.parse(etree.tostring(self.execute_operation(_QueryProfile)), xml_attribs = False)
-
+        result = xmltodict.parse(etree.tostring(self.execute_operation(_QueryProfile)), xml_attribs=False)
 
         return query_id, result
 
@@ -287,31 +311,32 @@ class create_client():
         """Downloads single file from OPDM Service Provider to OPDM Client local storage,
         to get the file binary as a response of set return_payload to True
 
-        Returns a dictionary with metada and filename or conent, to get the filename or content use:
+        Returns a dictionary with metadata and filename or content, to get the filename or content use:
         result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content']
         """
 
         return_mode = "FILE"
         if return_payload:
             return_mode = "PAYLOAD"
+            
+        logger.debug(f"Return mode: {return_mode}")
 
-        new_GetContentResult = self.operations.GetContentResult.format(mRID=content_id, return_mode=return_mode)
+        get_content_result = self.Operations.GetContentResult.format(mRID=content_id, return_mode=return_mode)
 
-        result = xmltodict.parse(etree.tostring(self.execute_operation(new_GetContentResult.encode())), xml_attribs=False)
+        result = xmltodict.parse(etree.tostring(self.execute_operation(get_content_result.encode())), xml_attribs=False)
 
-        if self.debug:
-            try:
-                print("File downloaded")
-                print(result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content']) # Print url of the
+        if type(result['sm:GetContentResult']['sm:part']) == list:
+            logger.info("File downloaded")
+            logger.debug(result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'])
 
-            except:
-                print("Error occurred")
+        else:
+            logger.error("File download failed")
 
         return result
 
     def publication_list(self):
 
-        result = self.execute_operation(self.operations.PublicationsList.encode())
+        result = self.execute_operation(self.Operations.PublicationsSubscriptionList.encode())
         return xmltodict.parse(etree.tostring(result), xml_attribs=True)
 
     def publication_subscribe(self, object_type="BDS", subscription_id="", publication_id="", mode="DIRECT_CONTENT", metadata_dict={}):
@@ -326,101 +351,73 @@ class create_client():
         """
         object_types = ["IGM", "CGM", "BDS"]
         if object_type not in object_types:
-            print(f"ObjectType '{object_type}' not supported, supported types are: {object_types}")
+            logger.warning(f"ObjectType '{object_type}' not supported, supported types are: {object_types}")
             return None
 
         modes = ["META", "DIRECT_CONTENT", "FULL"]
         if mode not in modes:
-            print(f"Mode '{mode}' not supported, supported modes are: {modes}")
+            logger.warning(f"Mode '{mode}' not supported, supported modes are: {modes}")
             return None
 
         if subscription_id == "":
             subscription_id = str(uuid.uuid4())
 
-
         # Get available publications
-        available_publications = service.publication_list()
+        available_publications = self.publication_list()
         publications_ids = [item['opde:publicationID']["@v"] for item in available_publications['sm:PublicationsSubscriptionListResult']['sm:part']['opdm:PublicationsList']['opdm:Publication']]
 
         if publication_id == "":
             publication_id = random.choice([id for id in publications_ids if f"-{object_type}" in id])
 
         if publication_id not in publications_ids:
-            print(f"Publication '{publication_id}' not supported, supported modes are: {publications_ids}")
+            logger.error(f"Publication '{publication_id}' not supported, supported modes are: {publications_ids}")
             return None
 
-
-        PublicationSubscribe = f"""<sm:PublicationSubscribe xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
-                                    xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
-                                    xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
-                                    xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0"
-                                    xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
-                                    <sm:part name="subscriptionID">{subscription_id}</sm:part>
-                                    <sm:part name="publicationID">{publication_id}</sm:part>
-                                    <sm:part name="mode">{mode}</sm:part>
-                                    <sm:part name="pattern" type="opde:MetaDataPattern">
-                                        <opdm:OPDMObject>
-                                            <pmd:Object-Type>{object_type}</pmd:Object-Type>
-                                        </opdm:OPDMObject>
-                                        </sm:part>
-                                    </sm:PublicationSubscribe>""".encode()
+        publication_subscribe = self.Operations.PublicationSubscribe.format(subscription_id=subscription_id,
+                                                                            publication_id=publication_id,
+                                                                            mode=mode,
+                                                                            object_type=object_type).encode()
 
         if metadata_dict != "":
-            PublicationSubscribe = add_xml_elements(PublicationSubscribe, ".//opdm:OPDMObject", metadata_dict)
+            publication_subscribe = add_xml_elements(publication_subscribe, ".//opdm:OPDMObject", metadata_dict)
 
-        return xmltodict.parse(etree.tostring(self.execute_operation(PublicationSubscribe)), xml_attribs=False)
+        return xmltodict.parse(etree.tostring(self.execute_operation(publication_subscribe)), xml_attribs=False)
 
-    def get_profile_publication_report(self, model_ID="", filename=""):
+    def get_profile_publication_report(self, model_id="", filename=""):
 
-        if model_ID == "" and filename =="":
-            print("ERROR - you have to define either model_ID or filename to get the report")
+        if model_id == "" and filename == "":   
+            logger.error("model_id or filename needs to be defined to get the report")
+            return None
 
-        else:
-            GetProfilePublicationReport = """<sm:GetProfilePublicationReport
-                                                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                                                    xsi:schemaLocation="http://entsoe.eu/opde/ServiceModel/1/0 ../scheme/opde-service-model.xsd"
-                                                    xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
-                                                    xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
-                                                    xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
-                                                    xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0"
-                                                    xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
-                                                <sm:part type="opde:MetaDataPattern">
-                                                    <opdm:Profile>
-                                                    </opdm:Profile>
-                                                </sm:part>
-                                            </sm:GetProfilePublicationReport>
-                                            """.encode()
+        get_profile_publication_report = self.Operations.GetProfilePublicationReport.encode()
 
-            if model_ID != "":
-                GetProfilePublicationReport = add_xml_elements(GetProfilePublicationReport, ".//opdm:Profile", {"pmd:modelId": model_ID})
+        if model_id != "":
+            logger.debug(f"Query made by model ID -> {model_id}")
+            get_profile_publication_report = add_xml_elements(get_profile_publication_report, ".//opdm:Profile", {"pmd:modelId": model_id})
 
-            if filename != "":
-                GetProfilePublicationReport = add_xml_elements(GetProfilePublicationReport, ".//opdm:Profile", {"pmd:filename": filename})
+        if filename != "":
+            logger.debug(f"Query made by file name -> {filename}")
+            get_profile_publication_report = add_xml_elements(get_profile_publication_report, ".//opdm:Profile", {"pmd:filename": filename})
 
-            #import pandas
-            #pandas.DataFrame(status['sm:GetProfilePublicationReportResult']['sm:part']['opdm:PublicationReport']['publication:history']['publication:step'])
+        # import pandas
+        # pandas.DataFrame(status['sm:GetProfilePublicationReportResult']['sm:part']['opdm:PublicationReport']['publication:history']['publication:step'])
 
-            return xmltodict.parse(etree.tostring(self.execute_operation(GetProfilePublicationReport)), xml_attribs=True)
+        return xmltodict.parse(etree.tostring(self.execute_operation(get_profile_publication_report)), xml_attribs=True)
 
     def publication_cancel_subscription(self, subscription_id):
         """Cancel subscription by subscription ID"""
 
-        new_PublicationSubscriptionCancel = self.operations.PublicationSubscriptionCancel.format(subscription_id).encode()
+        logger.debug(f"Cancelling subscription with ID -> {subscription_id}")
+        publication_subscription_cancel = self.Operations.PublicationSubscriptionCancel.format(subscription_id).encode()
 
-        return xmltodict.parse(etree.tostring(self.execute_operation(new_PublicationSubscriptionCancel)), xml_attribs=False)
-
-
-
+        return xmltodict.parse(etree.tostring(self.execute_operation(publication_subscription_cancel)), xml_attribs=False)
 
 
-
-# DEBUG
 if __name__ == '__main__':
 
+    server = 'https://er-opde-acceptance.elering.sise:8443'
 
-    server = 'https://test-ba-opde.elering.sise:8443'
-
-    service = create_client(server, username="user", password="pass", debug=True)
+    service = create_client(server, username="user", password="pass", debug=False)
 
     ## Subscription example BDS
     #response = service.publication_subscribe("BDS")

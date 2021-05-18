@@ -17,7 +17,7 @@ setup(
     author_email='kristjan.vilgo@gmail.com',
     description='ENTSO-E OPDM client SOAP API implementation in python',
     install_requires=[
-        "requests", "zeep", 'urllib3', 'lxml', 'aniso8601',
+        "requests", "zeep", 'urllib3', 'lxml', 'aniso8601', 'xmltodict',
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
