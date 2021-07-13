@@ -1,6 +1,10 @@
 # OPDM
 Python implementation of OPDM SOAP API. OPDM is used to exchange Electrical Grid Models between ENTSO-E TSO-s and RSC-s
 
+Other relevant API-s:
+ - [ECP](https://github.com/Haigutus/ECP)
+ - [EDX](https://github.com/Haigutus/EDX)
+
 # Installation
 
     pip install opdm-api
@@ -80,27 +84,6 @@ or
 
     print(pandas.DataFrame(response['sm:QueryResult']['sm:part'][1:]))
     
-### Query latest boundary
-
-    import pandas
-    
-    # Query data from OPDM
-    _, response = service.query_object("BDS")
-    
-    boundaries = response['sm:QueryResult']['sm:part'][1:]
-
-    # Convert to dataframe for sorting out the latest boundary
-    boundary_data = pandas.DataFrame([x['opdm:OPDMObject'] for x in boundaries])
-
-    # Convert date and version to respective formats
-    boundary_data['date_time'] = pandas.to_datetime(boundary_data['pmd:scenarioDate'])
-    boundary_data['version'] = pandas.to_numeric(boundary_data['pmd:versionNumber'])
-
-    # Sort out official boundary
-    official_boundary_data = boundary_data[boundary_data["opde:Context"] == {'opde:IsOfficial': 'true'}]
-
-    # Get latest boundary meta
-    latest_boundary_meta = boundaries[list(official_boundary_data.sort_values(["date_time", "version"], ascending=False).index)[0]]
 
 ## Download a File
 ### Download to OPDM Client and return local path to the file
@@ -108,9 +91,15 @@ or
     print(response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'])
     
 ### Download and Save file
+    import base64
     response = service.get_content(file_UUID, return_payload=True)
     with open(f"{file_UUID}.zip", 'wb') as cgmes_file:
-        report_file.write(response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'])
+        report_file.write(base64.b64decode(response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'].encode()))
+        
+        
+## [Examples](https://github.com/Haigutus/OPDM/tree/main/examples)
+ - [Download latest boundary](https://github.com/Haigutus/OPDM/blob/main/examples/download_latest_boundary.py)
+    
         
 
     
