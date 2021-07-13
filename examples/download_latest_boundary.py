@@ -41,19 +41,18 @@ official_boundary_data = boundary_data[boundary_data["opde:Context"] == {'opde:I
 # Get latest boundary meta
 latest_boundary_meta = boundaries[list(official_boundary_data.sort_values(["date_time", "version"], ascending=False).index)[0]]
 
-print("Downloading latest BDS")
 # Download and save files
-current_directory = os.getcwd()
+print("Downloading latest BDS")
 
 for boundary_file in latest_boundary_meta['opdm:OPDMObject']['opde:Component']:
 
-    id = boundary_file['opdm:Profile']['opde:Id']
+    file_id = boundary_file['opdm:Profile']['opde:Id']
     file_name = boundary_file['opdm:Profile']['pmd:fileName']
     file_path = os.path.join(EXPORT_FOLDER, file_name)
 
-    print(f"Downloading {file_name} with id {id}")
+    print(f"Downloading {file_name} with id {file_id}")
 
-    response = service.get_content(id, return_payload=True)
+    response = service.get_content(file_id, return_payload=True)
 
     with open(file_path, 'wb') as file_object:
         message64_bytes = response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'].encode()
