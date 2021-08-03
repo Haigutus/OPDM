@@ -24,25 +24,20 @@
 # Short guide
 # 1. Install python -> https://www.python.org/downloads/release/python-3711/
 # 2. Install needed modules -> open cmd and use command "python -m pip install --user opdm-api pandas"
-# 3. Update settings
+# 3. Update settings.py -> just open/edit with any text editor
 # 4. Run the script
 
 import OPDM
 import pandas
 import os
 import base64
-
-## Settings
-OPMD_USERNAME = "user"
-OPDM_PASSWORD = "pass"
-OPDM_SERVER = "https://opde.elering.sise:8443"
-EXPORT_FOLDER = os.getcwd()  # Write here path to specific folder, for now it will write file to the same location from where the script is ran
+import settings
 
 
 ## Process
 # Create connection to OPDM
-service = OPDM.create_client(OPDM_SERVER, username=OPMD_USERNAME, password=OPDM_PASSWORD)
-print(f"Connection created to OPDM at {OPDM_SERVER} as {OPMD_USERNAME}")
+service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPMD_USERNAME, password=settings.OPDM_PASSWORD)
+print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPMD_USERNAME}")
 
 # Query data from OPDM
 _, response = service.query_object("BDS")
@@ -71,7 +66,7 @@ for boundary_file in latest_boundary_meta['opdm:OPDMObject']['opde:Component']:
 
     file_id = boundary_file['opdm:Profile']['opde:Id']
     file_name = boundary_file['opdm:Profile']['pmd:fileName']
-    file_path = os.path.join(EXPORT_FOLDER, file_name)
+    file_path = os.path.join(settings.EXPORT_FOLDER, file_name)
 
     print(f"Downloading {file_name} with id {file_id}")
 
