@@ -54,11 +54,17 @@ print(f"Downloading {model_type} models")
 
 for model in models:
 
+    folder_name = f"{model['opdm:OPDMObject']['opde:Object-Type']}_{model['opdm:OPDMObject']['pmd:timeHorizon']}_{model['opdm:OPDMObject']['pmd:validFrom']}_{model['opdm:OPDMObject']['pmd:MergingEntity']}"
+
+    folder_path =  os.path.join(settings.EXPORT_FOLDER, folder_name)
+
+    os.makedirs(folder_path, exist_ok=True)
+
     for cimxml_file in model['opdm:OPDMObject']['opde:Component']:
 
         file_id = cimxml_file['opdm:Profile']['opde:Id']
         file_name = cimxml_file['opdm:Profile']['pmd:fileName']
-        file_path = os.path.join(settings.EXPORT_FOLDER, file_name)
+        file_path = os.path.join(folder_path, file_name)
 
         print(f"Downloading {file_name} with ID: {file_id}")
 
