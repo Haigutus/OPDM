@@ -75,6 +75,7 @@ class create_client():
 
         service_wsdl = '{}/cxf/OPDMSoapInterface?wsdl'.format(server)
         auth_wsdl = '{}/cxf/OPDMSoapInterface/SoapAuthentication?wsdl'.format(server)
+        ruleset_wsdl = '{}/cxf/OPDMSoapInterface/RuleSetManagementService?wsdl'.format(server)
 
         session = Session()
 
@@ -86,9 +87,11 @@ class create_client():
         # Set up client
         if debug:
             self.client = Client(service_wsdl, transport=Transport(session=session), plugins=[self.history])
+            self.ruleset_client = Client(ruleset_wsdl, transport=Transport(session=session), plugins=[self.history])
             logging.basicConfig(format='%(asctime)s | %(name)s | %(levelname)s | %(message)s', level=logging.DEBUG)
         else:
             self.client = Client(service_wsdl, transport=Transport(session=session))
+            self.ruleset_client = Client(ruleset_wsdl, transport=Transport(session=session))
 
         # Set up auth
         if username == "":
@@ -318,7 +321,7 @@ class create_client():
         return_mode = "FILE"
         if return_payload:
             return_mode = "PAYLOAD"
-            
+
         logger.debug(f"Return mode: {return_mode}")
 
         get_content_result = self.Operations.GetContentResult.format(mRID=content_id, return_mode=return_mode)
@@ -385,7 +388,7 @@ class create_client():
 
     def get_profile_publication_report(self, model_id="", filename=""):
 
-        if model_id == "" and filename == "":   
+        if model_id == "" and filename == "":
             logger.error("model_id or filename needs to be defined to get the report")
             return None
 
@@ -412,12 +415,28 @@ class create_client():
 
         return xmltodict.parse(etree.tostring(self.execute_operation(publication_subscription_cancel)), xml_attribs=False)
 
+    def get_installed_ruleset_version(self):
+        """Retrurns a string with the latest ruleset version"""
+        return self.ruleset_client.service.GetInstalledRuleSetVersion(_soapheaders=self.create_saml_header())
+
+    def list_available_rulesets(self):
+        """Returns a list of available rulesets"""
+        return self.ruleset_client.service.ListAvailableRuleSets(_soapheaders=self.create_saml_header())
+
+    def install_ruleset(self, version=None):
+        """Install ruleset library by providing the library version as a string. To get available ruleset libraries use list_available_rulesets()"""
+        return self.ruleset_client.service.Install(Version=version, _soapheaders=self.create_saml_header())
+
+    def reset_ruleset(self):
+        """Reset ruleset library"""
+        return self.ruleset_client.service.Reset(_soapheaders=self.create_saml_header())
+
 
 if __name__ == '__main__':
 
-    server = 'https://er-opde-acceptance.elering.sise:8443'
+    server = 'https://opde.elering.sise:8443'
 
-    service = create_client(server, username="user", password="pass", debug=False)
+    service = create_client(server, username="", password="", debug=False)
 
     ## Subscription example BDS
     #response = service.publication_subscribe("BDS")
