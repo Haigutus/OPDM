@@ -342,7 +342,7 @@ class create_client():
         result = self.execute_operation(self.Operations.PublicationsSubscriptionList.encode())
         return xmltodict.parse(etree.tostring(result), xml_attribs=True)
 
-    def publication_subscribe(self, object_type="BDS", subscription_id="", publication_id="", mode="DIRECT_CONTENT", metadata_dict={}):
+    def publication_subscribe(self, object_type="BDS", subscription_id="", publication_id="", mode="DIRECT_CONTENT", metadata_dict=None):
         """
         Set up subscription for data models. By default sets up subscription for BDS
 
@@ -352,8 +352,13 @@ class create_client():
         mode -> META, DIRECT_CONTENT, FULL
         metadata_dict_example = {'pmd:TSO': 'ELERING', 'pmd:timeHorizon': '1D'}
         """
-        object_types = ["IGM", "CGM", "BDS"]
-        if object_type not in object_types:
+        # Get available publications
+        available_publications = self.publication_list()
+
+
+        object_types = {item['opde:messageType']["@v"].split("-")[-1]:item['opde:publicationID']["@v"] for item in available_publications['sm:PublicationsSubscriptionListResult']['sm:part']['opdm:PublicationsList']['opdm:Publication']}
+
+        if object_type not in object_types.keys():
             logger.warning(f"ObjectType '{object_type}' not supported, supported types are: {object_types}")
             return None
 
@@ -365,13 +370,10 @@ class create_client():
         if subscription_id == "":
             subscription_id = str(uuid.uuid4())
 
-        # Get available publications
-        available_publications = self.publication_list()
-        publications_ids = [item['opde:publicationID']["@v"] for item in available_publications['sm:PublicationsSubscriptionListResult']['sm:part']['opdm:PublicationsList']['opdm:Publication']]
-
         if publication_id == "":
-            publication_id = random.choice([id for id in publications_ids if f"-{object_type}" in id])
+            publication_id = object_types[object_type]
 
+        publications_ids = [item['opde:publicationID']["@v"] for item in available_publications['sm:PublicationsSubscriptionListResult']['sm:part']['opdm:PublicationsList']['opdm:Publication']]
         if publication_id not in publications_ids:
             logger.error(f"Publication '{publication_id}' not supported, supported modes are: {publications_ids}")
             return None
@@ -381,7 +383,7 @@ class create_client():
                                                                             mode=mode,
                                                                             object_type=object_type).encode()
 
-        if metadata_dict != "":
+        if metadata_dict:
             publication_subscribe = add_xml_elements(publication_subscribe, ".//opdm:OPDMObject", metadata_dict)
 
         return xmltodict.parse(etree.tostring(self.execute_operation(publication_subscribe)), xml_attribs=False)
