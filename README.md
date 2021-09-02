@@ -108,7 +108,7 @@ or
     service.get_installed_ruleset_version()
     
 ### Reset Ruleset
-    service.reset_rulesets()
+    service.reset_ruleset()
 
     
 ## [Examples](https://github.com/Haigutus/OPDM/tree/main/examples)
