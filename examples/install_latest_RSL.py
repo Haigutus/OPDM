@@ -39,7 +39,7 @@ print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPMD_U
 # Query data from OPDM
 _, response = service.query_object("RULESET")
 
-# Remove first part of the response, that is not a boundary metadata, but the id of the original query
+# Remove first part of the response, it is the id of the original query
 ruleset = response['sm:QueryResult']['sm:part'][1:]
 print(f"Query returned {len(ruleset)} RULESET")
 
@@ -48,10 +48,19 @@ version_dict = {int(item['opdm:OPDMObject']['pmd:version'].replace(".", "")):{"v
 latest_RSL = version_dict[max(version_dict.keys())]
 print(f"Latest RSL -> {latest_RSL}")
 
-# Download latest RSL
-response = service.get_content(latest_RSL["id"])
-print(f"Downloaded {response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['pmd:fileName']}")
+# Check if the install version is not the latest allready
+installed_RSL = service.get_installed_ruleset_version()
+print(f"Currently installed RSL -> {installed_RSL}")
 
-# Install latest RSL
-response = service.install_ruleset(latest_RSL["version"])
-print(f"RSL Installed {response}")
+if latest_RSL["version"] != installed_RSL:
+
+    # Download latest RSL
+    response = service.get_content(latest_RSL["id"])
+    print(f"Downloaded {response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['pmd:fileName']}")
+
+    # Install latest RSL
+    response = service.install_ruleset(latest_RSL["version"])
+    print(f"RSL Installed {response}")
+
+else:
+    print(f"Latest RSL allready installed")
