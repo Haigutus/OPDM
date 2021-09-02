@@ -37,11 +37,11 @@ or
         service.publication_request(os.path.join(directory_path, file_name))
     
 ## Get File Upload/Publication Report
-    publication_report = get_profile_publication_report(model_ID)
+    publication_report = service.get_profile_publication_report(model_ID)
     
 or
 
-    publication_report = get_profile_publication_report(filename="uploaded_file_name.zip")
+    publication_report = service.get_profile_publication_report(filename="uploaded_file_name.zip")
 
 ## Subscribe for Model publications
 ### Get available Publications
@@ -61,7 +61,7 @@ or
         print(response)
     
 ## Cancel Subscription
-    response = publication_cancel_subscription(subscription_id)
+    response = service.publication_cancel_subscription(subscription_id)
     
 ## Query Data
 ### Model
@@ -96,9 +96,26 @@ or
     with open(f"{file_UUID}.zip", 'wb') as cgmes_file:
         report_file.write(base64.b64decode(response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'].encode()))
         
-        
+## Manage Rulesets
+
+### List available Ruleset
+    service.list_available_rulesets()
+    
+### Install Ruleset
+    service.install_rulesets(version="2.0.122")
+    
+### Get installed Ruleset version
+    service.get_installed_ruleset_version()
+    
+### Reset Ruleset
+    service.reset_ruleset()
+
+    
 ## [Examples](https://github.com/Haigutus/OPDM/tree/main/examples)
- - [Download latest boundary](https://github.com/Haigutus/OPDM/blob/main/examples/download_latest_boundary.py)
+ - [Download latest Boundary](https://github.com/Haigutus/OPDM/blob/main/examples/download_latest_BDS.py)
+ - [Download all Boundaries](https://github.com/Haigutus/OPDM/blob/main/examples/download_all_BDS.py)
+ - [Install latest Rule Set](https://github.com/Haigutus/OPDM/blob/main/examples/install_latest_RSL.py)
+ - [Upload IGM](https://github.com/Haigutus/OPDM/blob/main/examples/upload_IGMs.py)
     
         
 
