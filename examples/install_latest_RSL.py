@@ -23,7 +23,7 @@
 
 # Short guide
 # 1. Install python -> https://www.python.org/downloads/release/python-3711/
-# 2. Install needed modules -> open cmd and use command "python -m pip install --user opdm-api"    NB! needs opdm-api 0.0.9 or greater, to upgrade add flag --upgrade to install command
+# 2. Install needed modules -> open cmd and use command "python -m pip install --user opdm-api"    NB! needs opdm-api 0.0.11 or greater, to upgrade add flag --upgrade to install command
 # 3. Update settings.py -> just open/edit with any text editor
 # 4. Run the script
 
