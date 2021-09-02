@@ -55,8 +55,8 @@ print(f"Currently installed RSL -> {installed_RSL}")
 if latest_RSL["version"] != installed_RSL:
 
     # Download latest RSL
-    response = service.get_content(latest_RSL["id"])
-    print(f"Downloaded {response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['pmd:fileName']}")
+    response = service.get_content(latest_RSL["id"], object_type="model")
+    print(f"Downloaded {response['sm:GetContentResult']['sm:part'][1]['opdm:OPDMObject']['pmd:fileName']}")
 
     # Install latest RSL
     response = service.install_ruleset(latest_RSL["version"])

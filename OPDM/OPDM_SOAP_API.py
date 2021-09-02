@@ -71,7 +71,7 @@ class create_client():
 
         self.debug = debug
         self.history = HistoryPlugin()
-        self.API_VERSION = "0.0.8"  # TODO - Get the version from versioneer
+        self.API_VERSION = "0.0.11"  # TODO - Get the version from versioneer
 
         service_wsdl = '{}/cxf/OPDMSoapInterface?wsdl'.format(server)
         auth_wsdl = '{}/cxf/OPDMSoapInterface/SoapAuthentication?wsdl'.format(server)
@@ -156,7 +156,7 @@ class create_client():
                         </sm:part>
                     </sm:Query>"""
 
-        GetContentResult = """<?xml version="1.0" encoding="UTF-8"?>
+        GetContentResult_Profile = """<?xml version="1.0" encoding="UTF-8"?>
                                 <sm:GetContent xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
                                                xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
                                                xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
@@ -166,6 +166,19 @@ class create_client():
                                         <opdm:Profile>
                                             <opde:Id>{mRID}</opde:Id>
                                         </opdm:Profile>
+                                        </sm:part>
+                                </sm:GetContent>"""
+
+        GetContentResult_OPDMObject = """<?xml version="1.0" encoding="UTF-8"?>
+                                <sm:GetContent xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
+                                               xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
+                                               xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
+                                               xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
+                                    <sm:part name="identifier" type="opde:ShortMetaData">
+                                    <sm:part name="content-return-mode">{return_mode}</sm:part><!-- PAYLOAD or FILE -->
+                                        <opdm:OPDMObject>
+                                            <opde:Id>{mRID}</opde:Id>
+                                        </opdm:OPDMObject>
                                         </sm:part>
                                 </sm:GetContent>"""
 
@@ -310,9 +323,11 @@ class create_client():
 
         return query_id, result
 
-    def get_content(self, content_id, return_payload=False):
+    def get_content(self, content_id, return_payload=False, object_type="file"):
         """Downloads single file from OPDM Service Provider to OPDM Client local storage,
         to get the file binary as a response of set return_payload to True
+
+        supported object_types = [file, model]
 
         Returns a dictionary with metadata and filename or content, to get the filename or content use:
         result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content']
@@ -324,13 +339,16 @@ class create_client():
 
         logger.debug(f"Return mode: {return_mode}")
 
-        get_content_result = self.Operations.GetContentResult.format(mRID=content_id, return_mode=return_mode)
+        object_types = {"file": self.Operations.GetContentResult_Profile,
+                        "model": self.Operations.GetContentResult_OPDMObject}
+
+        get_content_result = object_types[object_type].format(mRID=content_id, return_mode=return_mode)
 
         result = xmltodict.parse(etree.tostring(self.execute_operation(get_content_result.encode())), xml_attribs=False)
 
         if type(result['sm:GetContentResult']['sm:part']) == list:
             logger.info("File downloaded")
-            logger.debug(result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'])
+            #logger.debug(result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'])
 
         else:
             logger.error("File download failed")
