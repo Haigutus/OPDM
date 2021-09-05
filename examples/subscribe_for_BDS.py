@@ -28,19 +28,21 @@
 # 4. Run the script
 
 import OPDM
-import settings
 
-## Process
+def subscribe_for_bds(service):
+    """Create subscription for BDS"""
 
-# Create connection to OPDM
-service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPMD_USERNAME, password=settings.OPDM_PASSWORD)
-print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPMD_USERNAME}")
+    print(f"Adding subscription for BDS")
+    response = service.publication_subscribe("BDS", subscription_id="BDS")
+    print(response)
 
-# Create subscription for BDS
+if __name__ == '__main__':
 
-print(f"Adding subscription for BDS")
-response = service.publication_subscribe("BDS", subscription_id="BDS")
-print(response)
+    import settings
+    # Create connection to OPDM
+    service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPMD_USERNAME, password=settings.OPDM_PASSWORD)
+    print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPMD_USERNAME}")
+    subscribe_for_bds(service)
 
 
 

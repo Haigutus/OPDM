@@ -28,22 +28,23 @@
 # 4. Run the script
 
 import OPDM
-import settings
 
-## Process
+def subscribe_for_igms(service):
+    """Add subscription for all IGM-s exept for RT (real time)"""
+    # Create list of all time horizons
+    time_horizons = [f"{item:02d}" for item in list(range(1,32))] + ["ID", "1D", "2D", "YR"]
 
-# Create connection to OPDM
-service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPMD_USERNAME, password=settings.OPDM_PASSWORD)
-print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPMD_USERNAME}")
+    # Create subscription for each time horizon
+    for time_horizon in time_horizons:
+        print(f"Adding subscription IGM-{time_horizon}")
+        response = service.publication_subscribe("IGM", subscription_id=f"IGM-{time_horizon}", metadata_dict={'pmd:timeHorizon': time_horizon})
+        print(response)
 
-# Create list of all time horizons
-time_horizons = [f"{item:02d}" for item in list(range(1,32))] + ["ID", "1D", "2D", "YR"]
-
-# Create subscription for each time horizon
-for time_horizon in time_horizons:
-    print(f"Adding subscription for {time_horizon}")
-    response = service.publication_subscribe("IGM", subscription_id=f"IGM-{time_horizon}", metadata_dict={'pmd:timeHorizon': time_horizon})
-    print(response)
-
+if __name__ == '__main__':
+    # Create connection to OPDM
+    import settings
+    service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPMD_USERNAME, password=settings.OPDM_PASSWORD)
+    print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPMD_USERNAME}")
+    subscribe_for_igms(service)
 
 

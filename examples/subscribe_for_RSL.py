@@ -29,17 +29,20 @@
 
 import OPDM
 
-def subscribe_for_cgms(service):
-    """Create subscription for CGM-s"""
+def subscribe_for_rsl(service):
+    """Create subscription for RSL"""
 
-    print(f"Adding subscription for CGM")
-    response = service.publication_subscribe("CGM", subscription_id="CGM")
+    print(f"Adding subscription for RSL")
+    response = service.publication_subscribe("RULESET", subscription_id="RSL")
     print(response)
 
 if __name__ == '__main__':
-    # Create connection to OPDM
+
     import settings
+    # Create connection to OPDM
     service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPMD_USERNAME, password=settings.OPDM_PASSWORD)
     print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPMD_USERNAME}")
-    subscribe_for_cgms(service)
+    subscribe_for_rsl(service)
+
+
 

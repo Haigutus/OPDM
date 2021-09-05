@@ -2,3 +2,6 @@
 \.idea/
 
 __pycache__/
+dist/
+build/
+opdm_venv/
