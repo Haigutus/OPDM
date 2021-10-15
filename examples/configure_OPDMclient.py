@@ -30,6 +30,7 @@ from download_all_BDS import download_all_bds
 from install_latest_RSL import install_latest_rsl
 from subscribe_for_CGMs import subscribe_for_cgms
 from subscribe_for_IGMs import subscribe_for_igms
+from settings import RSL_OFFICIAL_NODES
 
 def yes_no(question=""):
     yes_list = ["y", "Y", "yes", "Yes"]
@@ -52,7 +53,7 @@ parser.add_argument('--install_rsl', action='store_true', help=install_latest_rs
 parser.add_argument('--download_bds', action='store_true', help=download_all_bds.__doc__)
 parser.add_argument('--subscribe_igm', action='store_true', help=subscribe_for_igms.__doc__)
 parser.add_argument('--subscribe_cgm', action='store_true', help=subscribe_for_cgms.__doc__)
-parser.add_argument('--silent', action='store_true', help='Set flag to use this tool in a automated manner withoud user input')
+parser.add_argument('--silent', action='store_true', help='Set flag to use this tool in a automated manner without interactive user input')
 
 parser.print_usage()
 
@@ -76,7 +77,7 @@ print(f"Connection created to OPDM at {arg.opdm_client} as {arg.username}")
 if arg.install_rsl == False and arg.silent == False:
     arg.install_rsl = yes_no("Would you like to istall latest QoCDC ruleset?")
 
-if arg.install_rsl: install_latest_rsl(service)
+if arg.install_rsl: install_latest_rsl(service, RSL_OFFICIAL_NODES)
 
 
 if arg.subscribe_rsl == False and arg.silent == False:
