@@ -70,7 +70,7 @@ for boundary_file in latest_boundary_meta['opdm:OPDMObject']['opde:Component']:
 
     print(f"Downloading {file_name} with id {file_id}")
 
-    response = service.get_content(file_id, return_payload=True)
+    response = service.get_content(file_id, return_payload=True, object_type="model")
 
     with open(file_path, 'wb') as file_object:
         message64_bytes = response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'].encode()
