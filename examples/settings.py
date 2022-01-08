@@ -1,7 +1,7 @@
 # Settings
 import os
 
-OPMD_USERNAME = os.environ.get('OPMD_USERNAME', "user")
+OPDM_USERNAME = os.environ.get('OPDM_USERNAME', "user")
 OPDM_PASSWORD = os.environ.get('OPDM_PASSWORD', "pass")
 OPDM_SERVER = os.environ.get('OPDM_SERVER', "https://opde.elering.sise:8443")
 

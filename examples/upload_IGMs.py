@@ -36,8 +36,8 @@ from lxml import etree
 ## Process
 
 # Create connection to OPDM
-service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPMD_USERNAME, password=settings.OPDM_PASSWORD)
-print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPMD_USERNAME}")
+service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPDM_USERNAME, password=settings.OPDM_PASSWORD)
+print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPDM_USERNAME}")
 
 # Create list of file to upload
 files_to_upload = glob.glob(os.path.join(settings.IGM_SOURCE_FOLDER, "*.zip"))
