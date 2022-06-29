@@ -15,22 +15,17 @@ from zeep.wsse.username import UsernameToken
 from zeep.plugins import HistoryPlugin
 
 from lxml import etree
-from lxml.builder import ElementMaker
 
-import random
 import os
 import uuid
 
-import json
 import xmltodict
-
-from datetime import datetime, timezone
-import aniso8601
 
 import urllib3
 
-import logging
+from OPDM import __version__ as package_version
 
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -71,10 +66,9 @@ class create_client():
 
         self.debug = debug
         self.history = HistoryPlugin()
-        self.API_VERSION = "0.0.11"  # TODO - Get the version from versioneer
+        self.API_VERSION = package_version
 
         service_wsdl = '{}/cxf/OPDMSoapInterface?wsdl'.format(server)
-        auth_wsdl = '{}/cxf/OPDMSoapInterface/SoapAuthentication?wsdl'.format(server)
         ruleset_wsdl = '{}/cxf/OPDMSoapInterface/RuleSetManagementService?wsdl'.format(server)
 
         session = Session()
@@ -85,27 +79,13 @@ class create_client():
             session.verify = False
 
         # Set up client
-        if debug:
-            self.client = Client(service_wsdl, transport=Transport(session=session), plugins=[self.history])
-            self.ruleset_client = Client(ruleset_wsdl, transport=Transport(session=session), plugins=[self.history])
-            logging.basicConfig(format='%(asctime)s | %(name)s | %(levelname)s | %(message)s', level=logging.DEBUG)
-        else:
-            self.client = Client(service_wsdl, transport=Transport(session=session))
-            self.ruleset_client = Client(ruleset_wsdl, transport=Transport(session=session))
+        self.client = Client(service_wsdl, transport=Transport(session=session), wsse=UsernameToken(username, password=password))
+        self.ruleset_client = Client(ruleset_wsdl, transport=Transport(session=session), wsse=UsernameToken(username, password=password))
 
-        # Set up auth
-        if username == "":
-            self.auth = False
-        elif debug:
-            self.auth = True
-            self.auth_client = Client(auth_wsdl, transport=Transport(session=session),  wsse=UsernameToken(username, password=password), plugins=[self.history])
-            self.auth_valid_until = datetime.now(timezone.utc)
-            self.token = None
-        else:
-            self.auth = True
-            self.auth_client = Client(auth_wsdl, transport=Transport(session=session),  wsse=UsernameToken(username, password=password))
-            self.auth_valid_until = datetime.now(timezone.utc)
-            self.token = None
+        if debug:
+            self.client.plugins = [self.history]
+            self.ruleset_client.plugins = [self.history]
+            logging.basicConfig(format='%(asctime)s | %(name)s | %(levelname)s | %(message)s', level=logging.DEBUG)
 
     def _print_last_message_exchange(self):
         """Prints out last sent and received SOAP messages"""
@@ -225,40 +205,9 @@ class create_client():
                                                     </sm:GetProfilePublicationReport>
                                                     """
 
-    def request_security_token(self, pretty_print=False):
-        """Return the token as string and it's validity time"""
-        token_string = self.auth_client.service.RequestSecurityToken()
-        token = etree.fromstring(token_string)
-        valid_unitl = aniso8601.parse_datetime(token.find(".//{*}Conditions").attrib['NotOnOrAfter'])
-
-        if pretty_print:
-            print(json.dumps(xmltodict.parse(token_string), indent=4))
-
-        return token, valid_unitl
-
-    def check_token(self):
-        """Check if token is due to expire and renew if needed"""
-        utc_now = datetime.now(timezone.utc)
-
-        if utc_now > self.auth_valid_until - aniso8601.parse_duration("PT5S"):
-            self.token, self.auth_valid_until = self.request_security_token()
-            logger.debug("Requesting new Auth Token")
-
-        elif self.debug:
-            logger.debug(f"Auth Token still valid for {self.auth_valid_until - utc_now}")
-
-    def create_saml_header(self):
-        """Create SOAP SAML authentication header element for zeep"""
-        if self.auth:
-            self.check_token()
-            WSSE = "http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"
-            return [ElementMaker(namespace=WSSE).Security(self.token)]
-        else:
-            return []
-
     def execute_operation(self, operation_xml):
         """ExecuteOperation(payload: xsd:base64Binary) -> return: ns0:resultDto"""
-        response = self.client.service.ExecuteOperation(operation_xml, _soapheaders=self.create_saml_header())
+        response = self.client.service.ExecuteOperation(operation_xml)
         return response
 
     def publication_request(self, file_path_or_file_object, content_type="CGMES"):
@@ -278,11 +227,11 @@ class create_client():
 
         payload = {"id": file_name, "type": content_type, "content": file_string}
 
-        response = self.client.service.PublicationRequest(payload, _soapheaders=self.create_saml_header())
+        response = self.client.service.PublicationRequest(payload)
 
         return response
 
-    def query_object(self, object_type="IGM", metadata_dict="", components=[], dependencies=[]):
+    def query_object(self, object_type="IGM", metadata_dict=None, components=None, dependencies=None):
         """
         object_type ->IGM, CGM, BDS
         metadata_dict_example = {'pmd:cgmesProfile': 'SV', 'pmd:scenarioDate': '2018-12-07T00:30:00+01:00', 'pmd:timeHorizon': '1D'}
@@ -293,14 +242,16 @@ class create_client():
 
         _QueryObject = self.Operations.QueryObject.format(query_id=query_id, object_type=object_type).encode()
 
-        if metadata_dict != "":
+        if metadata_dict:
             _QueryObject = add_xml_elements(_QueryObject, ".//opdm:OPDMObject", metadata_dict)
 
-        for component in components:
-            _QueryObject = add_xml_elements(_QueryObject, ".//opde:Components", component)
+        if components:
+            for component in components:
+                _QueryObject = add_xml_elements(_QueryObject, ".//opde:Components", component)
 
-        for dependency in dependencies:
-            _QueryObject = add_xml_elements(_QueryObject, ".//opde:Dependencies", dependency)
+        if dependencies:
+            for dependency in dependencies:
+                _QueryObject = add_xml_elements(_QueryObject, ".//opde:Dependencies", dependency)
 
         logger.debug(_QueryObject.decode())
 
@@ -346,6 +297,7 @@ class create_client():
 
         result = xmltodict.parse(etree.tostring(self.execute_operation(get_content_result.encode())), xml_attribs=False)
 
+        # TODO - add better error handling, in case error message was returned
         if type(result['sm:GetContentResult']['sm:part']) == list:
             logger.info("File downloaded")
             #logger.debug(result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'])
@@ -373,8 +325,7 @@ class create_client():
         # Get available publications
         available_publications = self.publication_list()
 
-
-        object_types = {item['opde:messageType']["@v"].split("-")[-1]:item['opde:publicationID']["@v"] for item in available_publications['sm:PublicationsSubscriptionListResult']['sm:part']['opdm:PublicationsList']['opdm:Publication']}
+        object_types = {item['opde:messageType']["@v"].split("-")[-1]: item['opde:publicationID']["@v"] for item in available_publications['sm:PublicationsSubscriptionListResult']['sm:part']['opdm:PublicationsList']['opdm:Publication']}
 
         if object_type not in object_types.keys():
             logger.warning(f"ObjectType '{object_type}' not supported, supported types are: {object_types}")
@@ -437,19 +388,19 @@ class create_client():
 
     def get_installed_ruleset_version(self):
         """Retrurns a string with the latest ruleset version"""
-        return self.ruleset_client.service.GetInstalledRuleSetVersion(_soapheaders=self.create_saml_header())
+        return self.ruleset_client.service.GetInstalledRuleSetVersion()
 
     def list_available_rulesets(self):
         """Returns a list of available rulesets"""
-        return self.ruleset_client.service.ListAvailableRuleSets(_soapheaders=self.create_saml_header())
+        return self.ruleset_client.service.ListAvailableRuleSets()
 
     def install_ruleset(self, version=None):
         """Install ruleset library by providing the library version as a string. To get available ruleset libraries use list_available_rulesets()"""
-        return self.ruleset_client.service.Install(Version=version, _soapheaders=self.create_saml_header())
+        return self.ruleset_client.service.Install(Version=version)
 
     def reset_ruleset(self):
         """Reset ruleset library"""
-        return self.ruleset_client.service.Reset(_soapheaders=self.create_saml_header())
+        return self.ruleset_client.service.Reset()
 
 
 if __name__ == '__main__':
