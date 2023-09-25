@@ -118,7 +118,6 @@ class create_client():
                         <sm:part name="name">{query_id}</sm:part>
                         <sm:part name="query" type="opde:MetaDataPattern">
                             <opdm:OPDMObject>
-                                <pmd:Object-Type>{object_type}</pmd:Object-Type>
                                 <opde:Components/>
                                 <opde:Dependencies/>
                             </opdm:OPDMObject>
@@ -240,7 +239,9 @@ class create_client():
 
         query_id = "pyquery_{api_version}_{uuid}".format(uuid=uuid.uuid4(), api_version=self.API_VERSION)
 
-        _QueryObject = self.Operations.QueryObject.format(query_id=query_id, object_type=object_type).encode()
+        _QueryObject = self.Operations.QueryObject.format(query_id=query_id).encode()
+
+        _QueryObject = add_xml_elements(_QueryObject, ".//opdm:OPDMObject", {"pmd:Object-Type": object_type})
 
         if metadata_dict:
             _QueryObject = add_xml_elements(_QueryObject, ".//opdm:OPDMObject", metadata_dict)
