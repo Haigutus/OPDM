@@ -57,7 +57,7 @@ def add_xml_elements(xml_string, parent_element_url, metadata_dict):
     return etree.tostring(xml_tree, pretty_print=True)
 
 
-class create_client():
+class Client:
 
     def __init__(self, server, username="", password="", debug=False, verify=False):
 
@@ -408,7 +408,7 @@ if __name__ == '__main__':
 
     server = 'https://opde.elering.sise:8443'
 
-    service = create_client(server, username="", password="", debug=False)
+    service = Client(server, username="", password="", debug=False)
 
     ## Subscription example BDS
     #response = service.publication_subscribe("BDS")

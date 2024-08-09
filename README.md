@@ -23,7 +23,7 @@ or
 ## Initialise
     import OPDM
 
-    service = OPDM.create_client("https://opdm.elering.sise:8443", username="user", password="pass")
+    service = OPDM.Client("https://opdm.elering.sise:8443", username="user", password="pass")
 
 ## Upload File
 ### Upload a file
