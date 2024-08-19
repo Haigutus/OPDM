@@ -36,6 +36,9 @@ def get_element(element_path, xml_tree):
 
 def add_xml_elements(xml_string, parent_element_url, metadata_dict):
 
+    if type(xml_string) is str:
+        xml_string = xml_string.encode("UTF-8")
+
     xml_tree = etree.fromstring(xml_string)
     metadata_element = get_element(parent_element_url, xml_tree=xml_tree)
 
@@ -161,33 +164,59 @@ class Client:
                                         </sm:part>
                                 </sm:GetContent>"""
 
+        CreateSubscription = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+                                <sm:CreateSubscription xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0" xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0" xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0" opdm-version="">
+                                   <sm:part name="subscription" type="opde:Subscription">
+                                      <opdm:Subscription>
+                                         <opdm:SubscriptionID>{subscription_id}</opdm:SubscriptionID>
+                                         <opdm:PublicationID>{publication_id}</opdm:PublicationID>
+                                         <opdm:Mode>{subscription_mode}</opdm:Mode>
+                                         <opdm:MetadataPattern>
+                                            <opdm:OPDMObject>
+                                               <pmd:Object-Type>CGM</pmd:Object-Type>
+                                            </opdm:OPDMObject>
+                                         </opdm:MetadataPattern>
+                                      </opdm:Subscription>
+                                   </sm:part>
+                                </sm:CreateSubscription>"""
+
+        # METADTA: The default mode. No specific action and the OPDM application will keep the OPDMObject metadata as received.
+        # DIRECT_CONTENT: The OPDM application will request the content of the profiles building the OPDMObject.
+        # FULL_DEPENDENCIES: The OPDM application will request the content of the profiles building the OPDMObject and the content of all its dependencies.
+
+
+        StartSubscription = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+                                <sm:StartSubscription xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0" opdm-version="">
+                                   <sm:part name="subscriptionID">{subscription_id}</sm:part>
+                                </sm:StartSubscription>"""
+
+        StopSubscription = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+                                <sm:StopSubscription xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0" opdm-version="">
+                                   <sm:part name="subscriptionID">{subscription_id}</sm:part>
+                                </sm:StopSubscription>"""
+
+        UpdateSubscription = "NOT_IMPLEMENTED"
+
+        DeleteSubscription = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+                                <sm:DeleteSubscription xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0" opdm-version="">
+                                   <sm:part name="subscriptionID">{subscription_id}</sm:part>
+                                </sm:DeleteSubscription>"""
+
+        GetSubscriptions = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+                                <sm:GetSubscriptions xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0" opdm-version="">
+                                   <sm:part name="filter">{subscription_status}</sm:part>
+                                </sm:GetSubscriptions>"""
+
+        # ALL: get all  subscriptions.
+        # SUBSCRIBED: get only subscriptions with status “Subscribed”.
+        # NOT_SUBSCRIBED: get only subscriptions with status “Not subscribed”.
+        # PENDING: get only subscriptions with status “Pending”.
+        # DELETED: get only subscriptions with status “Deleted”.
+
         PublicationsSubscriptionList = """<?xml version="1.0" encoding="UTF-8"?>
                                           <sm:PublicationsSubscriptionList xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0">
                                                 <sm:part name="listType">AVAILABLE_PUBLICATIONS</sm:part>
                                           </sm:PublicationsSubscriptionList>"""
-
-        PublicationSubscriptionCancel = """<sm:PublicationSubscriptionCancel xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
-                                                                                xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
-                                                                                xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
-                                                                                xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0"
-                                                                                xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
-                                                    <sm:part name="subscriptionID">{}</sm:part>
-                                                </sm:PublicationSubscriptionCancel>"""
-
-        PublicationSubscribe = """<sm:PublicationSubscribe xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
-                                            xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
-                                            xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
-                                            xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0"
-                                            xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
-                                            <sm:part name="subscriptionID">{subscription_id}</sm:part>
-                                            <sm:part name="publicationID">{publication_id}</sm:part>
-                                            <sm:part name="mode">{mode}</sm:part>
-                                            <sm:part name="pattern" type="opde:MetaDataPattern">
-                                                <opdm:OPDMObject>
-                                                    <pmd:Object-Type>{object_type}</pmd:Object-Type>
-                                                </opdm:OPDMObject>
-                                                </sm:part>
-                                            </sm:PublicationSubscribe>"""
 
         GetProfilePublicationReport = """<sm:GetProfilePublicationReport
                                                             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -206,6 +235,9 @@ class Client:
 
     def execute_operation(self, operation_xml):
         """ExecuteOperation(payload: xsd:base64Binary) -> return: ns0:resultDto"""
+        if type(operation_xml) is str:
+            operation_xml = operation_xml.encode("UTF-8")
+
         response = self.client.service.ExecuteOperation(operation_xml)
         return response
 
@@ -230,33 +262,55 @@ class Client:
 
         return response
 
+    def get_profile_publication_report(self, model_id="", filename=""):
+
+        if model_id == "" and filename == "":
+            logger.error("model_id or filename needs to be defined to get the report")
+            return None
+
+        get_profile_publication_report = self.Operations.GetProfilePublicationReport
+
+        if model_id != "":
+            logger.debug(f"Query made by model ID -> {model_id}")
+            get_profile_publication_report = add_xml_elements(get_profile_publication_report, ".//opdm:Profile", {"pmd:modelId": model_id})
+
+        if filename != "":
+            logger.debug(f"Query made by file name -> {filename}")
+            get_profile_publication_report = add_xml_elements(get_profile_publication_report, ".//opdm:Profile", {"pmd:filename": filename})
+
+        # import pandas
+        # pandas.DataFrame(status['sm:GetProfilePublicationReportResult']['sm:part']['opdm:PublicationReport']['publication:history']['publication:step'])
+
+        return xmltodict.parse(etree.tostring(self.execute_operation(get_profile_publication_report)), xml_attribs=True)
+
     def query_object(self, object_type="IGM", metadata_dict=None, components=None, dependencies=None):
         """
         object_type ->IGM, CGM, BDS
-        metadata_dict_example = {'pmd:cgmesProfile': 'SV', 'pmd:scenarioDate': '2018-12-07T00:30:00+01:00', 'pmd:timeHorizon': '1D'}
+        metadata_dict_example_1 = {'pmd:cgmesProfile': 'SV', 'pmd:scenarioDate': '2018-12-07T00:30:00+01:00', 'pmd:timeHorizon': '1D'}
+        metadata_dict_example_2 = {"pmd:timeHorizon": "YR", "pmd:scenarioDate": {"operator": "is after", "value": "2021-12-30T00:00:00"}}
         components_example = [{"opde:Component":"45955-94458-854789358-8557895"}, {"opde:Component":"45955-94458-854789358-8557895"}]
         dependencies_example = [{"opde:DependsOn":"45955-94458-854789358-8557895"}, {"opde:Supersedes":"45955-94458-854789358-8557895"}, {"opde:Replaces":"45955-94458-854789358-8557895"}] """
 
         query_id = "pyquery_{api_version}_{uuid}".format(uuid=uuid.uuid4(), api_version=self.API_VERSION)
 
-        _QueryObject = self.Operations.QueryObject.format(query_id=query_id).encode()
+        query_object = self.Operations.QueryObject.format(query_id=query_id)
 
-        _QueryObject = add_xml_elements(_QueryObject, ".//opdm:OPDMObject", {"pmd:Object-Type": object_type})
+        query_object = add_xml_elements(query_object, ".//opdm:OPDMObject", {"pmd:Object-Type": object_type})
 
         if metadata_dict:
-            _QueryObject = add_xml_elements(_QueryObject, ".//opdm:OPDMObject", metadata_dict)
+            query_object = add_xml_elements(query_object, ".//opdm:OPDMObject", metadata_dict)
 
         if components:
             for component in components:
-                _QueryObject = add_xml_elements(_QueryObject, ".//opde:Components", component)
+                query_object = add_xml_elements(query_object, ".//opde:Components", component)
 
         if dependencies:
             for dependency in dependencies:
-                _QueryObject = add_xml_elements(_QueryObject, ".//opde:Dependencies", dependency)
+                query_object = add_xml_elements(query_object, ".//opde:Dependencies", dependency)
 
-        logger.debug(_QueryObject.decode())
+        logger.debug(query_object.decode())
 
-        result = xmltodict.parse(etree.tostring(self.execute_operation(_QueryObject)), xml_attribs=False)
+        result = xmltodict.parse(etree.tostring(self.execute_operation(query_object)), xml_attribs=False)
 
         return query_id, result
 
@@ -266,12 +320,12 @@ class Client:
 
         query_id = "pyquery_{api_version}_{uuid}".format(uuid=uuid.uuid4(), api_version=self.API_VERSION)
 
-        _QueryProfile = self.Operations.QueryProfile.format(query_id=query_id).encode()
-        _QueryProfile = add_xml_elements(_QueryProfile, ".//opdm:Profile", metadata_dict)
+        query_profile = self.Operations.QueryProfile.format(query_id=query_id)
+        query_profile = add_xml_elements(query_profile, ".//opdm:Profile", metadata_dict)
 
-        logger.debug(_QueryProfile.decode())
+        logger.debug(query_profile)
 
-        result = xmltodict.parse(etree.tostring(self.execute_operation(_QueryProfile)), xml_attribs=False)
+        result = xmltodict.parse(etree.tostring(self.execute_operation(query_profile)), xml_attribs=False)
 
         return query_id, result
 
@@ -296,7 +350,7 @@ class Client:
 
         get_content_result = object_types[object_type].format(mRID=content_id, return_mode=return_mode)
 
-        result = xmltodict.parse(etree.tostring(self.execute_operation(get_content_result.encode())), xml_attribs=False)
+        result = xmltodict.parse(etree.tostring(self.execute_operation(get_content_result)), xml_attribs=True)
 
         # TODO - add better error handling, in case error message was returned
         if type(result['sm:GetContentResult']['sm:part']) == list:
@@ -310,10 +364,26 @@ class Client:
 
     def publication_list(self):
 
-        result = self.execute_operation(self.Operations.PublicationsSubscriptionList.encode())
+        result = self.execute_operation(self.Operations.PublicationsSubscriptionList)
         return xmltodict.parse(etree.tostring(result), xml_attribs=True)
 
-    def publication_subscribe(self, object_type="BDS", subscription_id="", publication_id="", mode="DIRECT_CONTENT", metadata_dict=None):
+    def subscription_list(self, subscription_status="ALL"):
+
+        """
+        ALL: get all  subscriptions.
+        SUBSCRIBED: get only subscriptions with status “Subscribed”.
+        NOT_SUBSCRIBED: get only subscriptions with status “Not subscribed”.
+        PENDING: get only subscriptions with status “Pending”.
+        DELETED: get only subscriptions with status “Deleted”.
+        """
+
+        get_subscriptions = self.Operations.GetSubscriptions.format(subscription_status=subscription_status)
+        get_subscriptions_response = self.execute_operation(get_subscriptions)
+
+        return xmltodict.parse(etree.tostring(get_subscriptions_response), xml_attribs=True)
+
+
+    def publication_subscribe(self, object_type="BDS", subscription_id="", publication_id="", mode="DIRECT_CONTENT", metadata_dict=None, raw_response=False):
         """
         Set up subscription for data models. By default sets up subscription for BDS
 
@@ -348,44 +418,40 @@ class Client:
             logger.error(f"Publication '{publication_id}' not supported, supported modes are: {publications_ids}")
             return None
 
-        publication_subscribe = self.Operations.PublicationSubscribe.format(subscription_id=subscription_id,
+        create_subscritpion = self.Operations.CreateSubscription.format(subscription_id=subscription_id,
                                                                             publication_id=publication_id,
                                                                             mode=mode,
-                                                                            object_type=object_type).encode()
+                                                                            object_type=object_type)
 
         if metadata_dict:
-            publication_subscribe = add_xml_elements(publication_subscribe, ".//opdm:OPDMObject", metadata_dict)
+            create_subscritpion = add_xml_elements(create_subscritpion, ".//opdm:OPDMObject", metadata_dict)
 
-        return xmltodict.parse(etree.tostring(self.execute_operation(publication_subscribe)), xml_attribs=False)
+        # Create subscription
+        subscription_response = self.execute_operation(create_subscritpion)
+        logger.debug(xmltodict.parse(etree.tostring(subscription_response), xml_attribs=False))
 
-    def get_profile_publication_report(self, model_id="", filename=""):
+        # Activate subscription
+        activation_response = self.execute_operation(self.Operations.StartSubscription.format(subscription_id=subscription_id))
+        marshalled_activation_response = xmltodict.parse(etree.tostring(activation_response), xml_attribs=False)
+        logger.debug(marshalled_activation_response)
 
-        if model_id == "" and filename == "":
-            logger.error("model_id or filename needs to be defined to get the report")
-            return None
+        if raw_response:
+            return etree.tostring(activation_response)
 
-        get_profile_publication_report = self.Operations.GetProfilePublicationReport.encode()
-
-        if model_id != "":
-            logger.debug(f"Query made by model ID -> {model_id}")
-            get_profile_publication_report = add_xml_elements(get_profile_publication_report, ".//opdm:Profile", {"pmd:modelId": model_id})
-
-        if filename != "":
-            logger.debug(f"Query made by file name -> {filename}")
-            get_profile_publication_report = add_xml_elements(get_profile_publication_report, ".//opdm:Profile", {"pmd:filename": filename})
-
-        # import pandas
-        # pandas.DataFrame(status['sm:GetProfilePublicationReportResult']['sm:part']['opdm:PublicationReport']['publication:history']['publication:step'])
-
-        return xmltodict.parse(etree.tostring(self.execute_operation(get_profile_publication_report)), xml_attribs=True)
+        else:
+            return marshalled_activation_response
 
     def publication_cancel_subscription(self, subscription_id):
         """Cancel subscription by subscription ID"""
 
         logger.debug(f"Cancelling subscription with ID -> {subscription_id}")
-        publication_subscription_cancel = self.Operations.PublicationSubscriptionCancel.format(subscription_id).encode()
+        stop_response = self.execute_operation(self.Operations.StopSubscription.format(subscription_id=subscription_id))
+        logger.debug(etree.tostring(stop_response))
 
-        return xmltodict.parse(etree.tostring(self.execute_operation(publication_subscription_cancel)), xml_attribs=False)
+        delete_response = self.execute_operation(self.Operations.DeleteSubscription.format(subscription_id=subscription_id))
+        logger.debug(etree.tostring(delete_response))
+
+        return xmltodict.parse(etree.tostring(delete_response), xml_attribs=False)
 
     def get_installed_ruleset_version(self):
         """Retrurns a string with the latest ruleset version"""
