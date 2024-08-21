@@ -43,7 +43,7 @@ print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPDM_U
 model_type = "CGM"
 metadata = {'pmd:scenarioDate': '2021-08-02T09:30:00', 'pmd:timeHorizon': '1D'}
 
-_, response = service.query_object(model_type, metadata_dict = metadata)
+response = service.query_object(model_type, metadata_dict=metadata)
 
 # Remove first part of the response, that is not a boundary metadata, but the id of the original query
 models = response['sm:QueryResult']['sm:part'][1:]

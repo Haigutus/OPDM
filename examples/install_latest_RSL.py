@@ -56,22 +56,22 @@ def install_latest_rsl(service, list_of_rsl_nodes_eic):
     ## Process
     # Query data from OPDM
 
-    query_id, response = service.query_object("RULESET")
-
-    if type(response['sm:QueryResult']['sm:part']) == str:
-        logger.error(f"Empty Query returned for RULESET, use this query ID on SP side and Client Elastic/Kibana debugging - {query_id}")
-        return
+    response = service.query_object("RULESET")
 
     # Remove first part of the response, it is the id of the original query
     ruleset = response['sm:QueryResult']['sm:part'][1:]
     logger.info(f"Query returned {len(ruleset)} RULESET")
+
+    if len(ruleset) == 0:
+        logger.error(f"Empty Query returned for RULESET, use this query ID on SP side and Client Elastic/Kibana debugging")
+        return
 
     # Sort out the highest version number RSL
     version_dict = {int(item['opdm:OPDMObject']['pmd:version'].replace(".", "")):{"version":item['opdm:OPDMObject']['pmd:version'], "id":item['opdm:OPDMObject']['opde:Id']} for item in ruleset if item ['opdm:OPDMObject']["opde:Component"]["opdm:Profile"]["opde:Context"]["opde:EDXContext"]["opde:SenderToolboxCode"] in list_of_rsl_nodes_eic}
     latest_RSL = version_dict[max(version_dict.keys())]
     logger.info(f"Latest Official RSL -> {latest_RSL}")
 
-    # Check if the install version is not the latest allready
+    # Check if the installed version is not the latest already
     try:
         installed_RSL = service.get_installed_ruleset_version()
         logger.info(f"INFO - Currently installed RSL -> {installed_RSL}")

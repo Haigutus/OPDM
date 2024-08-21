@@ -27,43 +27,41 @@
 # 3. Update settings.py -> just open/edit with any text editor
 # 4. Run the script
 
+import os
+import base64
 import OPDM
+import settings
+
+# Create connection to OPDM
+service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPDM_USERNAME, password=settings.OPDM_PASSWORD)
+print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPDM_USERNAME}")
+
+# Query data from OPDM
+response = service.query_object("IGM", metadata_dict={"pmd:timeHorizon": "YR", "pmd:scenarioDate": {"operator": "is after", "value": "2024-01-01T00:00:00"}})
+
+# Remove first part of the response, that is not a boundary metadata, but the id of the original query
+models = response['sm:QueryResult']['sm:part'][1:]
+print(f"Query returned {len(models)} models")
+
+# Download and save files
+print("Downloading all official models")
+
+for model in models:
+
+    file_id = model['opdm:OPDMObject']['opde:Id']
+    file_name = model['opdm:OPDMObject']['pmd:fileName']
+    file_path = os.path.join(settings.EXPORT_FOLDER, file_name)
+
+    print(f"Downloading model {file_name} with id {file_id}")
+
+    response = service.get_content(file_id, return_payload=True)
+
+    with open(file_path, 'wb') as file_object:
+        message64_bytes = response['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'].encode()
+        file_object.write(base64.b64decode(message64_bytes))
+
+    print(f"Saved to {file_path}")
 
 
-def download_all_bds(service):
-    """Downloads all available official BDS from Central SP to OPDM local client, this is useful if BDS subscription has not been active, but new BDS have been published"""
-
-    # Query data from OPDM
-    response = service.query_object("BDS")
-
-    # Remove first part of the response, that is not a boundary metadata, but the id of the original query
-    boundaries = response['sm:QueryResult']['sm:part'][1:]
-    print(f"Query returned {len(boundaries)} BDS")
-
-    # Download and save files
-    print("Downloading all official BDS")
-
-    for boundary in boundaries:
-
-        context = boundary['opdm:OPDMObject'].get("opde:Context")
-
-        if context is not None and context.get("opde:IsOfficial") == "true":
 
 
-            file_id = boundary['opdm:OPDMObject']['opde:Id']
-            file_name = boundary['opdm:OPDMObject']['pmd:fileName']
-
-            print(f"Downloading BDS {file_name} with id {file_id}")
-
-            response = service.get_content(file_id, object_type="model")
-
-            #print(response)  # DEBUG
-
-
-if __name__ == '__main__':
-
-    import settings
-    # Create connection to OPDM
-    service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPDM_USERNAME, password=settings.OPDM_PASSWORD)
-    print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPDM_USERNAME}")
-    download_all_bds(service)

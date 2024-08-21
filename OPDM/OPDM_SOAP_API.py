@@ -85,7 +85,7 @@ class Client:
         self.client = Client(service_wsdl, transport=Transport(session=session), wsse=UsernameToken(username, password=password))
         self.ruleset_client = Client(ruleset_wsdl, transport=Transport(session=session), wsse=UsernameToken(username, password=password))
 
-        if debug:
+        if self.debug:
             self.client.plugins = [self.history]
             self.ruleset_client.plugins = [self.history]
             logging.basicConfig(format='%(asctime)s | %(name)s | %(levelname)s | %(message)s', level=logging.DEBUG)
@@ -233,12 +233,21 @@ class Client:
                                                     </sm:GetProfilePublicationReport>
                                                     """
 
-    def execute_operation(self, operation_xml):
+    def execute_operation(self, operation_xml, return_raw_response=False):
         """ExecuteOperation(payload: xsd:base64Binary) -> return: ns0:resultDto"""
         if type(operation_xml) is str:
             operation_xml = operation_xml.encode("UTF-8")
 
         response = self.client.service.ExecuteOperation(operation_xml)
+
+        if self.debug:
+            logger.debug(etree.tostring(response, pretty_print=True))
+
+        if not return_raw_response:
+            response = xmltodict.parse(etree.tostring(response, pretty_print=True),
+                                       xml_attribs=True,
+                                       force_list=('sm:part',))
+
         return response
 
     def publication_request(self, file_path_or_file_object, content_type="CGMES"):
@@ -281,17 +290,88 @@ class Client:
         # import pandas
         # pandas.DataFrame(status['sm:GetProfilePublicationReportResult']['sm:part']['opdm:PublicationReport']['publication:history']['publication:step'])
 
-        return xmltodict.parse(etree.tostring(self.execute_operation(get_profile_publication_report)), xml_attribs=True)
+        return self.execute_operation(get_profile_publication_report)
 
-    def query_object(self, object_type="IGM", metadata_dict=None, components=None, dependencies=None):
+    def query_object(self, object_type="IGM", metadata_dict=None, components=None, dependencies=None, raw_response=False):
         """
         object_type ->IGM, CGM, BDS
         metadata_dict_example_1 = {'pmd:cgmesProfile': 'SV', 'pmd:scenarioDate': '2018-12-07T00:30:00+01:00', 'pmd:timeHorizon': '1D'}
         metadata_dict_example_2 = {"pmd:timeHorizon": "YR", "pmd:scenarioDate": {"operator": "is after", "value": "2021-12-30T00:00:00"}}
         components_example = [{"opde:Component":"45955-94458-854789358-8557895"}, {"opde:Component":"45955-94458-854789358-8557895"}]
-        dependencies_example = [{"opde:DependsOn":"45955-94458-854789358-8557895"}, {"opde:Supersedes":"45955-94458-854789358-8557895"}, {"opde:Replaces":"45955-94458-854789358-8557895"}] """
+        dependencies_example = [{"opde:DependsOn":"45955-94458-854789358-8557895"}, {"opde:Supersedes":"45955-94458-854789358-8557895"}, {"opde:Replaces":"45955-94458-854789358-8557895"}]
 
-        query_id = "pyquery_{api_version}_{uuid}".format(uuid=uuid.uuid4(), api_version=self.API_VERSION)
+        Metadata Operators
+
+        Operators used to filter datasets based on metadata conditions.
+
+        1. does not exist
+            - Types: Date, String
+            - Description: Used to return datasets that do not contain the given metadata.
+            - Value: No value is required for this operator.
+
+        2. exist
+            - Types: Date, String
+            - Description: Used to return datasets that contain the given metadata.
+            - Value: No value is required for this operator.
+
+        3. is not one of
+            - Types: Date, String
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value is not among the mentioned ones.
+            - Value: This operator requires at least one value.
+
+        4. is one of
+            - Types: Date, String
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value is among the mentioned ones.
+            - Value: This operator requires at least one value.
+
+        5. is
+            - Types: Date, String
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value is equal to the given value.
+            - Value: This operator requires one and only one value.
+
+        6. is not
+            - Types: Date, String
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value is not equal to the given value.
+            - Value: This operator requires one and only one value.
+
+        7. is between
+            - Types: Date
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value belongs to the given range.
+            - Value: This operator requires exactly two values.
+
+        8. is not between
+            - Types: Date
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value does not belong to the given range.
+            - Value: This operator requires exactly two values.
+
+        9. is before
+            - Types: Date
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value is before the given value.
+            - Value: This operator requires one and only one value.
+
+        10. is after
+            - Types: Date
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value is after the given value.
+            - Value: This operator requires one and only one value.
+
+        11. contains
+            - Types: String
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value contains the given value. The introduced value should not contain either asterisk (*) or white spaces.
+            - Value: This operator requires one and only one value.
+
+        12. match regex
+            - Types: String
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value matches the given regex.
+            - Value: This operator requires one and only one value.
+
+        13. match wildcard
+            - Types: String
+            - Description: Used to return datasets that contain the given metadata, and verifying the following condition: the metadata value matches the given expression. Using this operator, the user can use expressions that contain logical operators (and/or) and asterisks (*).
+            - Value: This operator requires one and only one value.
+        """
+
+        query_id = "py_opdm-api{api_version}_{uuid}".format(uuid=uuid.uuid4(), api_version=self.API_VERSION)
+        logger.debug(f"Executing query with ID: {query_id}")
 
         query_object = self.Operations.QueryObject.format(query_id=query_id)
 
@@ -310,26 +390,24 @@ class Client:
 
         logger.debug(query_object.decode())
 
-        result = xmltodict.parse(etree.tostring(self.execute_operation(query_object)), xml_attribs=False)
+        return self.execute_operation(query_object, return_raw_response=raw_response)
 
-        return query_id, result
 
-    def query_profile(self, metadata_dict):
+    def query_profile(self, metadata_dict, raw_response=False):
 
         """metadata_dict_example = {'pmd:cgmesProfile': 'SV', 'pmd:scenarioDate': '2018-12-07T00:30:00', 'pmd:timeHorizon': '1D'}"""
 
-        query_id = "pyquery_{api_version}_{uuid}".format(uuid=uuid.uuid4(), api_version=self.API_VERSION)
+        query_id = "py_opdm-api{api_version}_{uuid}".format(uuid=uuid.uuid4(), api_version=self.API_VERSION)
+        logger.debug(f"Executing query with ID: {query_id}")
 
         query_profile = self.Operations.QueryProfile.format(query_id=query_id)
         query_profile = add_xml_elements(query_profile, ".//opdm:Profile", metadata_dict)
 
         logger.debug(query_profile)
 
-        result = xmltodict.parse(etree.tostring(self.execute_operation(query_profile)), xml_attribs=False)
+        return self.execute_operation(query_profile, return_raw_response=raw_response)
 
-        return query_id, result
-
-    def get_content(self, content_id, return_payload=False, object_type="file"):
+    def get_content(self, content_id, return_payload=False, object_type="file", raw_response=False):
         """Downloads single file from OPDM Service Provider to OPDM Client local storage,
         to get the file binary as a response of set return_payload to True
 
@@ -350,22 +428,11 @@ class Client:
 
         get_content_result = object_types[object_type].format(mRID=content_id, return_mode=return_mode)
 
-        result = xmltodict.parse(etree.tostring(self.execute_operation(get_content_result)), xml_attribs=True)
-
-        # TODO - add better error handling, in case error message was returned
-        if type(result['sm:GetContentResult']['sm:part']) == list:
-            logger.info("File downloaded")
-            #logger.debug(result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content'])
-
-        else:
-            logger.error("File download failed")
-
-        return result
+        return self.execute_operation(get_content_result, return_raw_response=raw_response)
 
     def publication_list(self):
 
-        result = self.execute_operation(self.Operations.PublicationsSubscriptionList)
-        return xmltodict.parse(etree.tostring(result), xml_attribs=True)
+        return self.execute_operation(self.Operations.PublicationsSubscriptionList)
 
     def subscription_list(self, subscription_status="ALL"):
 
@@ -377,10 +444,15 @@ class Client:
         DELETED: get only subscriptions with status “Deleted”.
         """
 
-        get_subscriptions = self.Operations.GetSubscriptions.format(subscription_status=subscription_status)
-        get_subscriptions_response = self.execute_operation(get_subscriptions)
+        subscription_statuses = ["ALL", "SUBSCRIBED", "NOT_SUBSCRIBED", "PENDING", "DELETED"]
 
-        return xmltodict.parse(etree.tostring(get_subscriptions_response), xml_attribs=True)
+        if subscription_status not in subscription_statuses:
+            logger.warning(f"Status '{subscription_status}' not supported, supported types are: {subscription_statuses}")
+            return None
+
+        get_subscriptions = self.Operations.GetSubscriptions.format(subscription_status=subscription_status)
+
+        return self.execute_operation(get_subscriptions)
 
 
     def publication_subscribe(self, object_type="BDS", subscription_id="", publication_id="", mode="DIRECT_CONTENT", metadata_dict=None, raw_response=False):
@@ -418,43 +490,35 @@ class Client:
             logger.error(f"Publication '{publication_id}' not supported, supported modes are: {publications_ids}")
             return None
 
-        create_subscritpion = self.Operations.CreateSubscription.format(subscription_id=subscription_id,
+        create_subscription = self.Operations.CreateSubscription.format(subscription_id=subscription_id,
                                                                             publication_id=publication_id,
                                                                             mode=mode,
                                                                             object_type=object_type)
 
         if metadata_dict:
-            create_subscritpion = add_xml_elements(create_subscritpion, ".//opdm:OPDMObject", metadata_dict)
+            create_subscription = add_xml_elements(create_subscription, ".//opdm:OPDMObject", metadata_dict)
 
         # Create subscription
-        subscription_response = self.execute_operation(create_subscritpion)
-        logger.debug(xmltodict.parse(etree.tostring(subscription_response), xml_attribs=False))
+        self.execute_operation(create_subscription)
 
         # Activate subscription
-        activation_response = self.execute_operation(self.Operations.StartSubscription.format(subscription_id=subscription_id))
-        marshalled_activation_response = xmltodict.parse(etree.tostring(activation_response), xml_attribs=False)
-        logger.debug(marshalled_activation_response)
+        start_subscription = self.Operations.StartSubscription.format(subscription_id=subscription_id)
+        start_response = self.execute_operation(start_subscription, return_raw_response=raw_response)
 
-        if raw_response:
-            return etree.tostring(activation_response)
-
-        else:
-            return marshalled_activation_response
+        return start_response
 
     def publication_cancel_subscription(self, subscription_id):
         """Cancel subscription by subscription ID"""
 
         logger.debug(f"Cancelling subscription with ID -> {subscription_id}")
+
         stop_response = self.execute_operation(self.Operations.StopSubscription.format(subscription_id=subscription_id))
-        logger.debug(etree.tostring(stop_response))
-
         delete_response = self.execute_operation(self.Operations.DeleteSubscription.format(subscription_id=subscription_id))
-        logger.debug(etree.tostring(delete_response))
 
-        return xmltodict.parse(etree.tostring(delete_response), xml_attribs=False)
+        return delete_response
 
     def get_installed_ruleset_version(self):
-        """Retrurns a string with the latest ruleset version"""
+        """Returns a string with the latest ruleset version"""
         return self.ruleset_client.service.GetInstalledRuleSetVersion()
 
     def list_available_rulesets(self):
@@ -540,7 +604,7 @@ if __name__ == '__main__':
     # Publication list example
 
 ##    response = service.publication_list()
-##    print(json.dumps(xmltodict.parse(etree.tostring(response), xml_attribs = False), indent = 4))
+##    print(json.dumps(response), indent = 4))
 
 
 
@@ -573,9 +637,6 @@ if __name__ == '__main__':
 
 
 
-
-
-
  # SOAP API
 """
 Prefixes:
@@ -589,9 +650,7 @@ Global elements:
      ns0:PublicationRequestResponse(ns0:PublicationRequestResponse)
      ns0:opde-file(ns0:opdeFileDto)
 
-
 Global types:
-
      ns0:ExecuteOperation(payload: xsd:base64Binary)
      ns0:ExecuteOperationResponse(return: ns0:resultDto)
      ns0:PublicationRequest(dataset: ns0:opdeFileDto)

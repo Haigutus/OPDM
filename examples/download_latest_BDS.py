@@ -40,7 +40,7 @@ service = OPDM.create_client(settings.OPDM_SERVER, username=settings.OPDM_USERNA
 print(f"Connection created to OPDM at {settings.OPDM_SERVER} as {settings.OPDM_USERNAME}")
 
 # Query data from OPDM
-_, response = service.query_object("BDS")
+response = service.query_object("BDS")
 
 # Remove first part of the response, that is not a boundary metadata, but the id of the original query
 boundaries = response['sm:QueryResult']['sm:part'][1:]
