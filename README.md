@@ -67,11 +67,11 @@ or
 ### Model
 *Model consists of multiple files*
 
-    query_id, response = service.query_object(object_type = "IGM", metadata_dict = {'pmd:scenarioDate': '2019-07-28T00:30:00', 'pmd:timeHorizon': '1D'})
+    response = service.query_object(object_type = "IGM", metadata_dict = {'pmd:scenarioDate': '2019-07-28T00:30:00', 'pmd:timeHorizon': '1D'})
 
 ### File
 
-    query_id, response = service.query_profile('pmd:timeHorizon': '1D', 'pmd:cgmesProfile': 'SV'})
+    response = service.query_profile('pmd:timeHorizon': '1D', 'pmd:cgmesProfile': 'SV'})
     
 ### Create nice table of returned Query responses
 

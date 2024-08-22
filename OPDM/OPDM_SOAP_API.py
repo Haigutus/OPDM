@@ -9,7 +9,7 @@
 # Licence:     MIT
 # -------------------------------------------------------------------------------
 from requests import Session
-from zeep import Client
+from zeep import Client as SOAPClient
 from zeep.transports import Transport
 from zeep.wsse.username import UsernameToken
 from zeep.plugins import HistoryPlugin
@@ -82,8 +82,8 @@ class Client:
             session.verify = False
 
         # Set up client
-        self.client = Client(service_wsdl, transport=Transport(session=session), wsse=UsernameToken(username, password=password))
-        self.ruleset_client = Client(ruleset_wsdl, transport=Transport(session=session), wsse=UsernameToken(username, password=password))
+        self.client = SOAPClient(service_wsdl, transport=Transport(session=session), wsse=UsernameToken(username=username, password=password))
+        self.ruleset_client = SOAPClient(ruleset_wsdl, transport=Transport(session=session), wsse=UsernameToken(username=username, password=password))
 
         if self.debug:
             self.client.plugins = [self.history]
@@ -173,7 +173,7 @@ class Client:
                                          <opdm:Mode>{subscription_mode}</opdm:Mode>
                                          <opdm:MetadataPattern>
                                             <opdm:OPDMObject>
-                                               <pmd:Object-Type>CGM</pmd:Object-Type>
+                                               <pmd:Object-Type>{object_type}</pmd:Object-Type>
                                             </opdm:OPDMObject>
                                          </opdm:MetadataPattern>
                                       </opdm:Subscription>
@@ -288,7 +288,7 @@ class Client:
             get_profile_publication_report = add_xml_elements(get_profile_publication_report, ".//opdm:Profile", {"pmd:filename": filename})
 
         # import pandas
-        # pandas.DataFrame(status['sm:GetProfilePublicationReportResult']['sm:part']['opdm:PublicationReport']['publication:history']['publication:step'])
+        # pandas.DataFrame(status['sm:GetProfilePublicationReportResult']['sm:part'][0]['opdm:PublicationReport']['publication:history']['publication:step'])
 
         return self.execute_operation(get_profile_publication_report)
 
@@ -466,9 +466,9 @@ class Client:
         metadata_dict_example = {'pmd:TSO': 'ELERING', 'pmd:timeHorizon': '1D'}
         """
         # Get available publications
-        available_publications = self.publication_list()
+        available_publications = self.publication_list()['sm:PublicationsSubscriptionListResult']['sm:part'][0]['opdm:PublicationsList']['opdm:Publication']
 
-        object_types = {item['opde:messageType']["@v"].split("-")[-1]: item['opde:publicationID']["@v"] for item in available_publications['sm:PublicationsSubscriptionListResult']['sm:part']['opdm:PublicationsList']['opdm:Publication']}
+        object_types = {item['opde:messageType']["@v"].split("-")[-1]: item['opde:publicationID']["@v"] for item in available_publications}
 
         if object_type not in object_types.keys():
             logger.warning(f"ObjectType '{object_type}' not supported, supported types are: {object_types}")
@@ -485,27 +485,20 @@ class Client:
         if publication_id == "":
             publication_id = object_types[object_type]
 
-        publications_ids = [item['opde:publicationID']["@v"] for item in available_publications['sm:PublicationsSubscriptionListResult']['sm:part']['opdm:PublicationsList']['opdm:Publication']]
+        publications_ids = [item['opde:publicationID']["@v"] for item in available_publications]
         if publication_id not in publications_ids:
             logger.error(f"Publication '{publication_id}' not supported, supported modes are: {publications_ids}")
             return None
 
         create_subscription = self.Operations.CreateSubscription.format(subscription_id=subscription_id,
-                                                                            publication_id=publication_id,
-                                                                            mode=mode,
-                                                                            object_type=object_type)
+                                                                        publication_id=publication_id,
+                                                                        subscription_mode=mode,
+                                                                        object_type=object_type)
 
         if metadata_dict:
             create_subscription = add_xml_elements(create_subscription, ".//opdm:OPDMObject", metadata_dict)
 
-        # Create subscription
-        self.execute_operation(create_subscription)
-
-        # Activate subscription
-        start_subscription = self.Operations.StartSubscription.format(subscription_id=subscription_id)
-        start_response = self.execute_operation(start_subscription, return_raw_response=raw_response)
-
-        return start_response
+        return self.execute_operation(create_subscription)
 
     def publication_cancel_subscription(self, subscription_id):
         """Cancel subscription by subscription ID"""
