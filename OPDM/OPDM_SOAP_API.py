@@ -138,31 +138,15 @@ class Client:
                         </sm:part>
                     </sm:Query>"""
 
-        GetContentResult_Profile = """<?xml version="1.0" encoding="UTF-8"?>
+        GetContentResult = """<?xml version="1.0" encoding="UTF-8"?>
                                 <sm:GetContent xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
                                                xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
                                                xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
                                                xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
-                                    <sm:part name="identifier" type="opde:ShortMetaData">
                                     <sm:part name="content-return-mode">{return_mode}</sm:part><!-- PAYLOAD or FILE -->
-                                        <opdm:Profile>
-                                            <opde:Id>{mRID}</opde:Id>
-                                        </opdm:Profile>
-                                        </sm:part>
+                                    {identifier_parts}
                                 </sm:GetContent>"""
 
-        GetContentResult_OPDMObject = """<?xml version="1.0" encoding="UTF-8"?>
-                                <sm:GetContent xmlns="http://entsoe.eu/opde/ServiceModel/1/0"
-                                               xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0"
-                                               xmlns:opde="http://entsoe.eu/opde/ObjectModel/1/0"
-                                               xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0">
-                                    <sm:part name="identifier" type="opde:ShortMetaData">
-                                    <sm:part name="content-return-mode">{return_mode}</sm:part><!-- PAYLOAD or FILE -->
-                                        <opdm:OPDMObject>
-                                            <opde:Id>{mRID}</opde:Id>
-                                        </opdm:OPDMObject>
-                                        </sm:part>
-                                </sm:GetContent>"""
 
         CreateSubscription = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
                                 <sm:CreateSubscription xmlns:opdm="http://entsoe.eu/opdm/ObjectModel/1/0" xmlns:pmd="http://entsoe.eu/opdm/ProfileMetaData/1/0" xmlns:sm="http://entsoe.eu/opde/ServiceModel/1/0" opdm-version="">
@@ -408,25 +392,51 @@ class Client:
         return self.execute_operation(query_profile, return_raw_response=raw_response)
 
     def get_content(self, content_id, return_payload=False, object_type="file", raw_response=False):
-        """Downloads single file from OPDM Service Provider to OPDM Client local storage,
-        to get the file binary as a response of set return_payload to True
-
-        supported object_types = [file, model]
-
-        Returns a dictionary with metadata and filename or content, to get the filename or content use:
-        result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content']
         """
+            Downloads one or multiple files or models from OPDM Service Provider to OPDM Client local storage.
 
-        return_mode = "FILE"
-        if return_payload:
-            return_mode = "PAYLOAD"
+            Args:
+                content_id (Union[str, List[str]]): The identifier(s) of the content to download. Can be a single string or a list of strings.
+                return_payload (bool): If True, returns the file content directly. Defaults to False.
+                object_type (str): Type of object to retrieve. Supported types are "file" and "model". Defaults to "file".
+                raw_response (bool): If True, returns the raw response from the service. Defaults to False.
 
+            Returns:
+                Dict: A dictionary containing metadata and either the filename or the content itself based on `return_payload`.
+
+            Raises:
+                ValueError: If an unsupported `object_type` is provided.
+
+            Example:
+                result = get_content('<mRID>', return_payload=True)
+                content = result['sm:GetContentResult']['sm:part'][1]['opdm:Profile']['opde:Content']
+            """
+
+        return_mode = "PAYLOAD" if return_payload else "FILE"
         logger.debug(f"Return mode: {return_mode}")
 
-        object_types = {"file": self.Operations.GetContentResult_Profile,
-                        "model": self.Operations.GetContentResult_OPDMObject}
+        # Map object types
+        object_types = {"file": "Profile", "model": "OPDMObject"}
+        if object_type not in object_types:
+            raise ValueError(f"Unsupported object_type. Choose from {list(object_types.keys())}")
 
-        get_content_result = object_types[object_type].format(mRID=content_id, return_mode=return_mode)
+        # Ensure list of ID-s
+        if type(content_id) is str:
+            content_id = [content_id]
+
+        identifier_parts = [
+            f"""
+                <sm:part name="identifier" type="opde:ShortMetaData">
+                    <opdm:{object_types[object_type]}>
+                        <opde:Id>{identifier}</opde:Id>
+                    </opdm:{object_types[object_type]}>
+                </sm:part>
+                """ for identifier in content_id
+        ]
+
+        identifier_parts_str = '\n'.join(identifier_parts)
+
+        get_content_result = self.Operations.GetContentResult.format(identifier_parts=identifier_parts_str, return_mode=return_mode)
 
         return self.execute_operation(get_content_result, return_raw_response=raw_response)
 
