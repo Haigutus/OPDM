@@ -359,7 +359,9 @@ class Client:
 
         query_object = self.Operations.QueryObject.format(query_id=query_id)
 
-        query_object = add_xml_elements(query_object, ".//opdm:OPDMObject", {"pmd:Object-Type": object_type})
+        # Use default object type or passed in object type from function call, if not defined directly in query metadata
+        if not metadata_dict.get("pmd:Object-Type"):
+            metadata_dict["pmd:Object-Type"] = object_type
 
         if metadata_dict:
             query_object = add_xml_elements(query_object, ".//opdm:OPDMObject", metadata_dict)
