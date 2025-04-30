@@ -360,11 +360,14 @@ class Client:
         query_object = self.Operations.QueryObject.format(query_id=query_id)
 
         # Use default object type or passed in object type from function call, if not defined directly in query metadata
+
+        if not metadata_dict:
+            metadata_dict = {}
+        
         if not metadata_dict.get("pmd:Object-Type"):
             metadata_dict["pmd:Object-Type"] = object_type
 
-        if metadata_dict:
-            query_object = add_xml_elements(query_object, ".//opdm:OPDMObject", metadata_dict)
+        query_object = add_xml_elements(query_object, ".//opdm:OPDMObject", metadata_dict)
 
         if components:
             for component in components:
@@ -374,7 +377,7 @@ class Client:
             for dependency in dependencies:
                 query_object = add_xml_elements(query_object, ".//opde:Dependencies", dependency)
 
-        logger.debug(query_object.decode())
+        logger.debug(query_object)
 
         return self.execute_operation(query_object, return_raw_response=raw_response)
 
