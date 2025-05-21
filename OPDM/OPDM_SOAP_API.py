@@ -71,8 +71,8 @@ class Client:
         self.history = HistoryPlugin()
         self.API_VERSION = package_version
 
-        service_wsdl = '{}/cxf/OPDMSoapInterface?wsdl'.format(server)
-        ruleset_wsdl = '{}/cxf/OPDMSoapInterface/RuleSetManagementService?wsdl'.format(server)
+        service_wsdl = '{}/opdm/cxf/OPDMSoapInterface?wsdl'.format(server)
+        ruleset_wsdl = '{}/opdm/cxf/OPDMSoapInterface/RuleSetManagementService?wsdl'.format(server)
 
         session = Session()
 
